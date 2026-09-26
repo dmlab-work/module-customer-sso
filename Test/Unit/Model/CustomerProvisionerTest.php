@@ -1,16 +1,16 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model;
+namespace DmLab\CustomerSso\Test\Unit\Model;
 
-use MageDevGroup\CustomerSso\Model\ActiveProviderResolver;
-use MageDevGroup\CustomerSso\Model\Config;
-use MageDevGroup\CustomerSso\Model\CustomerProvisioner;
-use MageDevGroup\CustomerSso\Model\SubjectLink;
-use MageDevGroup\SsoCore\Model\Data\Identity;
+use DmLab\CustomerSso\Model\ActiveProviderResolver;
+use DmLab\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\CustomerProvisioner;
+use DmLab\CustomerSso\Model\SubjectLink;
+use DmLab\SsoCore\Model\Data\Identity;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\Data\CustomerInterfaceFactory;

@@ -1,13 +1,13 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Plugin;
+namespace DmLab\CustomerSso\Plugin;
 
-use MageDevGroup\CustomerSso\Model\ActiveProviderResolver;
-use MageDevGroup\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\ActiveProviderResolver;
+use DmLab\CustomerSso\Model\Config;
 use Magento\Customer\Block\Form\Login;
 
 /**

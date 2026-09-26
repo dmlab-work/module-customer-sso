@@ -1,14 +1,14 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model\Session;
+namespace DmLab\CustomerSso\Model\Session;
 
-use MageDevGroup\CustomerSso\Model\AuthorizationState;
-use MageDevGroup\SsoCore\Api\AuthorizationStateStorageInterface;
-use MageDevGroup\SsoCore\Api\Data\AuthorizationStateInterface;
+use DmLab\CustomerSso\Model\AuthorizationState;
+use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
+use DmLab\SsoCore\Api\Data\AuthorizationStateInterface;
 use Magento\Customer\Model\Session;
 
 /**
@@ -23,7 +23,7 @@ use Magento\Customer\Model\Session;
 class AuthorizationStateStorage implements AuthorizationStateStorageInterface
 {
     /** Session key holding the map of pending states, keyed by `state` token. */
-    private const SESSION_KEY = 'magedevgroup_customer_sso_auth_states';
+    private const SESSION_KEY = 'dmlab_customer_sso_auth_states';
 
     /**
      * @param Session $session

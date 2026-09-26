@@ -1,12 +1,12 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model;
+namespace DmLab\CustomerSso\Test\Unit\Model;
 
-use MageDevGroup\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\Config;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Encryption\EncryptorInterface;
 use Magento\Store\Model\ScopeInterface;

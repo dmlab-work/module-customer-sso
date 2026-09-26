@@ -1,12 +1,12 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model;
+namespace DmLab\CustomerSso\Test\Unit\Model;
 
-use MageDevGroup\CustomerSso\Model\SubjectLink;
+use DmLab\CustomerSso\Model\SubjectLink;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DB\Adapter\AdapterInterface;
 use Magento\Framework\DB\Select;

@@ -1,14 +1,14 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model\Config\Source;
+namespace DmLab\CustomerSso\Test\Unit\Model\Config\Source;
 
-use MageDevGroup\CustomerSso\Model\Config\Source\ActiveProvider;
-use MageDevGroup\CustomerSso\Model\PresetRegistry;
-use MageDevGroup\SsoCore\Api\ProviderPresetInterface;
+use DmLab\CustomerSso\Model\Config\Source\ActiveProvider;
+use DmLab\CustomerSso\Model\PresetRegistry;
+use DmLab\SsoCore\Api\ProviderPresetInterface;
 use PHPUnit\Framework\TestCase;
 
 class ActiveProviderTest extends TestCase

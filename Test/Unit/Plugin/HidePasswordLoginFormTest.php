@@ -1,15 +1,15 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Plugin;
+namespace DmLab\CustomerSso\Test\Unit\Plugin;
 
-use MageDevGroup\CustomerSso\Model\ActiveProviderResolver;
-use MageDevGroup\CustomerSso\Model\Config;
-use MageDevGroup\CustomerSso\Plugin\HidePasswordLoginForm;
-use MageDevGroup\SsoCore\Api\ProviderPresetInterface;
+use DmLab\CustomerSso\Model\ActiveProviderResolver;
+use DmLab\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Plugin\HidePasswordLoginForm;
+use DmLab\SsoCore\Api\ProviderPresetInterface;
 use Magento\Customer\Block\Form\Login;
 use PHPUnit\Framework\TestCase;
 

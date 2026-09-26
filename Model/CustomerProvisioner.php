@@ -1,12 +1,12 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model;
+namespace DmLab\CustomerSso\Model;
 
-use MageDevGroup\SsoCore\Api\Data\IdentityInterface;
+use DmLab\SsoCore\Api\Data\IdentityInterface;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\Data\CustomerInterfaceFactory;
@@ -34,7 +34,7 @@ use Magento\Store\Model\StoreManagerInterface;
  * login remains available only via the store's normal reset flow when the admin
  * keeps it enabled.
  *
- * Mirrors {@see \MageDevGroup\AdminSso\Model\UserProvisioner} for the customer
+ * Mirrors {@see \DmLab\AdminSso\Model\UserProvisioner} for the customer
  * domain; the subject link lives in {@see SubjectLink} rather than a table column
  * because customers are EAV/API entities.
  */

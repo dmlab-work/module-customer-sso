@@ -1,15 +1,15 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model;
+namespace DmLab\CustomerSso\Test\Unit\Model;
 
-use MageDevGroup\CustomerSso\Model\Config;
-use MageDevGroup\CustomerSso\Model\GroupAssigner;
-use MageDevGroup\SsoCore\Model\Data\Identity;
-use MageDevGroup\SsoCore\Model\Mapping\MappingEngine;
+use DmLab\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\GroupAssigner;
+use DmLab\SsoCore\Model\Data\Identity;
+use DmLab\SsoCore\Model\Mapping\MappingEngine;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\Data\GroupInterface;

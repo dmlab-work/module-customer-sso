@@ -1,12 +1,12 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model;
+namespace DmLab\CustomerSso\Model;
 
-use MageDevGroup\SsoCore\Api\Data\AuthorizationStateInterface;
+use DmLab\SsoCore\Api\Data\AuthorizationStateInterface;
 
 /**
  * Plain value object carrying the one-time authorization state reloaded from the

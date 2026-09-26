@@ -1,13 +1,13 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model;
+namespace DmLab\CustomerSso\Model;
 
-use MageDevGroup\SsoCore\Api\Data\IdentityInterface;
-use MageDevGroup\SsoCore\Model\Mapping\MappingEngine;
+use DmLab\SsoCore\Api\Data\IdentityInterface;
+use DmLab\SsoCore\Model\Mapping\MappingEngine;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\GroupManagementInterface;
@@ -38,7 +38,7 @@ use Magento\Store\Model\StoreManagerInterface;
  * rather than being moved onto a broken one or downgraded to "NOT LOGGED IN".
  *
  * Provider-neutral: groups arrive already normalized on the identity by sso-core.
- * Mirrors {@see \MageDevGroup\AdminSso\Model\RoleAssigner} for the customer domain.
+ * Mirrors {@see \DmLab\AdminSso\Model\RoleAssigner} for the customer domain.
  */
 class GroupAssigner
 {

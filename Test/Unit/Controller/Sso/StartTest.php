@@ -1,13 +1,13 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Controller\Sso;
+namespace DmLab\CustomerSso\Test\Unit\Controller\Sso;
 
-use MageDevGroup\CustomerSso\Controller\Sso\Start;
-use MageDevGroup\CustomerSso\Model\Oidc\AuthorizationStarter;
+use DmLab\CustomerSso\Controller\Sso\Start;
+use DmLab\CustomerSso\Model\Oidc\AuthorizationStarter;
 use Magento\Framework\Controller\Result\Redirect;
 use Magento\Framework\Controller\Result\RedirectFactory;
 use Magento\Framework\Exception\LocalizedException;

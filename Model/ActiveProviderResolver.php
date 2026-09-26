@@ -1,12 +1,12 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model;
+namespace DmLab\CustomerSso\Model;
 
-use MageDevGroup\SsoCore\Api\ProviderPresetInterface;
+use DmLab\SsoCore\Api\ProviderPresetInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Store\Model\ScopeInterface;
 
@@ -21,7 +21,7 @@ use Magento\Store\Model\ScopeInterface;
 class ActiveProviderResolver
 {
     /** Config path holding the admin-selected active provider code. */
-    public const XML_PATH_ACTIVE_PROVIDER = 'magedevgroup_customer_sso/general/active_provider';
+    public const XML_PATH_ACTIVE_PROVIDER = 'dmlab_customer_sso/general/active_provider';
 
     /**
      * @param ScopeConfigInterface $scopeConfig

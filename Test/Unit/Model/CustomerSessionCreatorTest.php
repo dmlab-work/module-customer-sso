@@ -1,12 +1,12 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model;
+namespace DmLab\CustomerSso\Test\Unit\Model;
 
-use MageDevGroup\CustomerSso\Model\CustomerSessionCreator;
+use DmLab\CustomerSso\Model\CustomerSessionCreator;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Model\Session;
 use PHPUnit\Framework\MockObject\MockObject;

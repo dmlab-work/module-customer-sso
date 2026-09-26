@@ -1,10 +1,10 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model;
+namespace DmLab\CustomerSso\Model;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Encryption\EncryptorInterface;
@@ -22,22 +22,22 @@ use Magento\Store\Model\ScopeInterface;
 class Config
 {
     /** Whether customer SSO is enabled. */
-    public const XML_PATH_ENABLED = 'magedevgroup_customer_sso/general/enabled';
+    public const XML_PATH_ENABLED = 'dmlab_customer_sso/general/enabled';
 
     /** OIDC client (application) id issued by the IdP. */
-    public const XML_PATH_CLIENT_ID = 'magedevgroup_customer_sso/general/client_id';
+    public const XML_PATH_CLIENT_ID = 'dmlab_customer_sso/general/client_id';
 
     /** OIDC client secret, stored encrypted. */
-    public const XML_PATH_CLIENT_SECRET = 'magedevgroup_customer_sso/general/client_secret';
+    public const XML_PATH_CLIENT_SECRET = 'dmlab_customer_sso/general/client_secret';
 
     /** Whether the native email/password login form stays visible alongside SSO. */
-    public const XML_PATH_ALLOW_PASSWORD_LOGIN = 'magedevgroup_customer_sso/general/allow_password_login';
+    public const XML_PATH_ALLOW_PASSWORD_LOGIN = 'dmlab_customer_sso/general/allow_password_login';
 
     /** Email account-linking policy (auto-link vs require verification). */
-    public const XML_PATH_AUTO_LINK_POLICY = 'magedevgroup_customer_sso/general/auto_link_policy';
+    public const XML_PATH_AUTO_LINK_POLICY = 'dmlab_customer_sso/general/auto_link_policy';
 
     /** IdP-group → customer-group rules, one `group=customer_group_id` per line. */
-    public const XML_PATH_GROUP_MAP = 'magedevgroup_customer_sso/general/group_customer_group_map';
+    public const XML_PATH_GROUP_MAP = 'dmlab_customer_sso/general/group_customer_group_map';
 
     /** Take over a matching customer by email without further proof. */
     public const AUTO_LINK_AUTO = 'auto';

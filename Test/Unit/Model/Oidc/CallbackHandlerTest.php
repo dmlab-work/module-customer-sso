@@ -1,25 +1,25 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model\Oidc;
+namespace DmLab\CustomerSso\Test\Unit\Model\Oidc;
 
-use MageDevGroup\CustomerSso\Model\ActiveProviderResolver;
-use MageDevGroup\CustomerSso\Model\AuthorizationState;
-use MageDevGroup\CustomerSso\Model\Config;
-use MageDevGroup\CustomerSso\Model\Oidc\CallbackHandler;
-use MageDevGroup\SsoCore\Api\AuthorizationStateStorageInterface;
-use MageDevGroup\SsoCore\Api\ProviderPresetInterface;
-use MageDevGroup\SsoCore\Model\Data\Identity;
-use MageDevGroup\SsoCore\Model\Oidc\DiscoveryClient;
-use MageDevGroup\SsoCore\Model\Oidc\IdentityFactory;
-use MageDevGroup\SsoCore\Model\Oidc\IdTokenValidator;
-use MageDevGroup\SsoCore\Model\Oidc\JwksClient;
-use MageDevGroup\SsoCore\Model\Oidc\ProviderMetadata;
-use MageDevGroup\SsoCore\Model\Oidc\TokenClient;
-use MageDevGroup\SsoCore\Model\Oidc\TokenResponse;
+use DmLab\CustomerSso\Model\ActiveProviderResolver;
+use DmLab\CustomerSso\Model\AuthorizationState;
+use DmLab\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\Oidc\CallbackHandler;
+use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
+use DmLab\SsoCore\Api\ProviderPresetInterface;
+use DmLab\SsoCore\Model\Data\Identity;
+use DmLab\SsoCore\Model\Oidc\DiscoveryClient;
+use DmLab\SsoCore\Model\Oidc\IdentityFactory;
+use DmLab\SsoCore\Model\Oidc\IdTokenValidator;
+use DmLab\SsoCore\Model\Oidc\JwksClient;
+use DmLab\SsoCore\Model\Oidc\ProviderMetadata;
+use DmLab\SsoCore\Model\Oidc\TokenClient;
+use DmLab\SsoCore\Model\Oidc\TokenResponse;
 use Jose\Component\Core\JWKSet;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\UrlInterface;

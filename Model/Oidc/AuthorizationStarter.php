@@ -1,16 +1,16 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model\Oidc;
+namespace DmLab\CustomerSso\Model\Oidc;
 
-use MageDevGroup\CustomerSso\Model\ActiveProviderResolver;
-use MageDevGroup\CustomerSso\Model\Config;
-use MageDevGroup\SsoCore\Api\AuthorizationStateStorageInterface;
-use MageDevGroup\SsoCore\Model\Oidc\AuthorizationRequestFactory;
-use MageDevGroup\SsoCore\Model\Oidc\DiscoveryClient;
+use DmLab\CustomerSso\Model\ActiveProviderResolver;
+use DmLab\CustomerSso\Model\Config;
+use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
+use DmLab\SsoCore\Model\Oidc\AuthorizationRequestFactory;
+use DmLab\SsoCore\Model\Oidc\DiscoveryClient;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\UrlInterface;
 

@@ -1,15 +1,15 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Block\Login;
+namespace DmLab\CustomerSso\Test\Unit\Block\Login;
 
-use MageDevGroup\CustomerSso\Block\Login\Sso;
-use MageDevGroup\CustomerSso\Model\ActiveProviderResolver;
-use MageDevGroup\CustomerSso\Model\Config;
-use MageDevGroup\SsoCore\Api\ProviderPresetInterface;
+use DmLab\CustomerSso\Block\Login\Sso;
+use DmLab\CustomerSso\Model\ActiveProviderResolver;
+use DmLab\CustomerSso\Model\Config;
+use DmLab\SsoCore\Api\ProviderPresetInterface;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Framework\UrlInterface;
 use Magento\Framework\View\Element\Template\Context;

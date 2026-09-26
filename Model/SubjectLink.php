@@ -1,10 +1,10 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model;
+namespace DmLab\CustomerSso\Model;
 
 use Magento\Framework\App\ResourceConnection;
 
@@ -14,13 +14,13 @@ use Magento\Framework\App\ResourceConnection;
  * The subject (`sub`) is the stable re-login key: once a customer is linked, every
  * later SSO login resolves them by subject rather than by the mutable email. This
  * lives in its own table because storefront customers are EAV/API entities — unlike
- * `admin_user`, where {@see \MageDevGroup\AdminSso\Model\UserProvisioner} keeps the
+ * `admin_user`, where {@see \DmLab\AdminSso\Model\UserProvisioner} keeps the
  * subject as a plain column on the table.
  */
 class SubjectLink
 {
     /** Link table name (see etc/db_schema.xml). */
-    public const TABLE = 'magedevgroup_customer_sso_subject';
+    public const TABLE = 'dmlab_customer_sso_subject';
 
     /**
      * @param ResourceConnection $resource

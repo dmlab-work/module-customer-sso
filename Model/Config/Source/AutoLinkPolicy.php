@@ -1,12 +1,12 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model\Config\Source;
+namespace DmLab\CustomerSso\Model\Config\Source;
 
-use MageDevGroup\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\Config;
 use Magento\Framework\Data\OptionSourceInterface;
 
 /**

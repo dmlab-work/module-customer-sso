@@ -1,4 +1,4 @@
-# MageDevGroup_CustomerSso
+# DmLab_CustomerSso
 
 > Provider-agnostic single sign-on for the Magento 2 storefront (OIDC).
 
@@ -18,16 +18,16 @@ This is the storefront-login capability **core**: it logs shoppers in over OIDC 
 Usually installed via a provider plugin, which pulls this core (which pulls `sso-core`):
 
 ```bash
-composer require magedevgroup/module-customer-sso-okta
-bin/magento module:enable MageDevGroup_CustomerSsoOkta MageDevGroup_CustomerSso MageDevGroup_SsoCore
+composer require dmlab/module-customer-sso-okta
+bin/magento module:enable DmLab_CustomerSsoOkta DmLab_CustomerSso DmLab_SsoCore
 bin/magento setup:upgrade
 ```
 
 Direct install of the core alone:
 
 ```bash
-composer require magedevgroup/module-customer-sso
-bin/magento module:enable MageDevGroup_SsoCore MageDevGroup_CustomerSso
+composer require dmlab/module-customer-sso
+bin/magento module:enable DmLab_SsoCore DmLab_CustomerSso
 bin/magento setup:upgrade
 ```
 
@@ -35,7 +35,7 @@ Register the module callback URL in your IdP: `https://<store-host>/customersso/
 
 ## Configuration
 
-Admin → Stores → Configuration → **MageDevGroup → Customer SSO → General** (config path `magedevgroup_customer_sso/general/*`). Settings are store-scoped, so SSO can be enabled and tuned per store view.
+Admin → Stores → Configuration → **DMLab → Customer SSO → General** (config path `dmlab_customer_sso/general/*`). Settings are store-scoped, so SSO can be enabled and tuned per store view.
 
 | Field | Path | Notes |
 |---|---|---|
@@ -53,7 +53,7 @@ The "Sign in with SSO" button appears on the customer login page when the module
 
 An SSO identity is matched to a customer in this order:
 
-1. **By IdP `sub`** — the stable subject stored in `magedevgroup_customer_sso_subject` on first link. A customer is EAV/API-backed, so the link lives in its own table rather than a column on the entity.
+1. **By IdP `sub`** — the stable subject stored in `dmlab_customer_sso_subject` on first link. A customer is EAV/API-backed, so the link lives in its own table rather than a column on the entity.
 2. **By email**, governed by `auto_link_policy`:
    - `auto` — a matching email signs straight into the existing customer.
    - `require_verification` (default) — email linking is refused until the email is proven, preventing account takeover via an unverified IdP email.
@@ -85,7 +85,7 @@ With no rules configured this is inert: customer groups are never touched, so a 
 - Magento **2.4.x**
 - PHP **8.3 – 8.5**
 
-## Part of the MageDevGroup identity suite
+## Part of the DMLab identity suite
 
 | Repo | Role |
 |------|------|
@@ -96,4 +96,4 @@ With no rules configured this is inert: customer groups are never touched, so a 
 
 ## License
 
-[OSL-3.0](LICENSE) © MageDevGroup. Commercial licensing and support: <https://magedevgroup.com>.
+[OSL-3.0](LICENSE) © DMLab. Commercial licensing and support: <https://dmlab.work>.

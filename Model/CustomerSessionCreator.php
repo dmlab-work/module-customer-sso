@@ -1,10 +1,10 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Model;
+namespace DmLab\CustomerSso\Model;
 
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Model\Session;
@@ -18,7 +18,7 @@ use Magento\Customer\Model\Session;
  * `customer_data_object_login` events so core listeners react exactly as they
  * would for a native storefront login.
  *
- * Mirrors {@see \MageDevGroup\AdminSso\Model\AdminSessionCreator} for the customer
+ * Mirrors {@see \DmLab\AdminSso\Model\AdminSessionCreator} for the customer
  * domain.
  */
 class CustomerSessionCreator

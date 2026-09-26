@@ -1,12 +1,12 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Controller\Sso;
+namespace DmLab\CustomerSso\Controller\Sso;
 
-use MageDevGroup\CustomerSso\Model\Oidc\AuthorizationStarter;
+use DmLab\CustomerSso\Model\Oidc\AuthorizationStarter;
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\Controller\Result\Redirect;
 use Magento\Framework\Controller\Result\RedirectFactory;

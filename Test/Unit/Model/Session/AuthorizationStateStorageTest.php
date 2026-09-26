@@ -1,14 +1,14 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model\Session;
+namespace DmLab\CustomerSso\Test\Unit\Model\Session;
 
-use MageDevGroup\CustomerSso\Model\AuthorizationState;
-use MageDevGroup\CustomerSso\Model\Session\AuthorizationStateStorage;
-use MageDevGroup\SsoCore\Api\Data\AuthorizationStateInterface;
+use DmLab\CustomerSso\Model\AuthorizationState;
+use DmLab\CustomerSso\Model\Session\AuthorizationStateStorage;
+use DmLab\SsoCore\Api\Data\AuthorizationStateInterface;
 use Magento\Customer\Model\Session;
 use Magento\Framework\TestFramework\Unit\Helper\MockCreationTrait;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;

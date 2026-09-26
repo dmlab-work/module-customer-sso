@@ -1,20 +1,20 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model\Oidc;
+namespace DmLab\CustomerSso\Test\Unit\Model\Oidc;
 
-use MageDevGroup\CustomerSso\Model\ActiveProviderResolver;
-use MageDevGroup\CustomerSso\Model\Config;
-use MageDevGroup\CustomerSso\Model\Oidc\AuthorizationStarter;
-use MageDevGroup\SsoCore\Api\AuthorizationStateStorageInterface;
-use MageDevGroup\SsoCore\Api\ProviderPresetInterface;
-use MageDevGroup\SsoCore\Model\Oidc\AuthorizationRequest;
-use MageDevGroup\SsoCore\Model\Oidc\AuthorizationRequestFactory;
-use MageDevGroup\SsoCore\Model\Oidc\DiscoveryClient;
-use MageDevGroup\SsoCore\Model\Oidc\ProviderMetadata;
+use DmLab\CustomerSso\Model\ActiveProviderResolver;
+use DmLab\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\Oidc\AuthorizationStarter;
+use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
+use DmLab\SsoCore\Api\ProviderPresetInterface;
+use DmLab\SsoCore\Model\Oidc\AuthorizationRequest;
+use DmLab\SsoCore\Model\Oidc\AuthorizationRequestFactory;
+use DmLab\SsoCore\Model\Oidc\DiscoveryClient;
+use DmLab\SsoCore\Model\Oidc\ProviderMetadata;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\UrlInterface;
 use PHPUnit\Framework\MockObject\MockObject;

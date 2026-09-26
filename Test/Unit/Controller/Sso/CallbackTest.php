@@ -1,17 +1,17 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Controller\Sso;
+namespace DmLab\CustomerSso\Test\Unit\Controller\Sso;
 
-use MageDevGroup\CustomerSso\Controller\Sso\Callback;
-use MageDevGroup\CustomerSso\Model\CustomerProvisioner;
-use MageDevGroup\CustomerSso\Model\CustomerSessionCreator;
-use MageDevGroup\CustomerSso\Model\GroupAssigner;
-use MageDevGroup\CustomerSso\Model\Oidc\CallbackHandler;
-use MageDevGroup\SsoCore\Model\Data\Identity;
+use DmLab\CustomerSso\Controller\Sso\Callback;
+use DmLab\CustomerSso\Model\CustomerProvisioner;
+use DmLab\CustomerSso\Model\CustomerSessionCreator;
+use DmLab\CustomerSso\Model\GroupAssigner;
+use DmLab\CustomerSso\Model\Oidc\CallbackHandler;
+use DmLab\SsoCore\Model\Data\Identity;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\Redirect;

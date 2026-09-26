@@ -1,10 +1,10 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit;
+namespace DmLab\CustomerSso\Test\Unit;
 
 use Magento\Framework\Component\ComponentRegistrar;
 use PHPUnit\Framework\TestCase;
@@ -15,13 +15,13 @@ class RegistrationTest extends TestCase
     {
         $paths = (new ComponentRegistrar())->getPaths(ComponentRegistrar::MODULE);
 
-        self::assertArrayHasKey('MageDevGroup_CustomerSso', $paths);
+        self::assertArrayHasKey('DmLab_CustomerSso', $paths);
     }
 
     public function testRegisteredPathPointsAtThisModule(): void
     {
         $paths = (new ComponentRegistrar())->getPaths(ComponentRegistrar::MODULE);
-        $path = $paths['MageDevGroup_CustomerSso'] ?? null;
+        $path = $paths['DmLab_CustomerSso'] ?? null;
 
         self::assertNotNull($path);
         self::assertDirectoryExists($path);
@@ -31,7 +31,7 @@ class RegistrationTest extends TestCase
     public function testModuleSequencesAfterSsoCore(): void
     {
         $paths = (new ComponentRegistrar())->getPaths(ComponentRegistrar::MODULE);
-        $moduleXml = ($paths['MageDevGroup_CustomerSso'] ?? '') . '/etc/module.xml';
+        $moduleXml = ($paths['DmLab_CustomerSso'] ?? '') . '/etc/module.xml';
 
         $dom = new \DOMDocument();
         self::assertTrue($dom->load($moduleXml));
@@ -43,6 +43,6 @@ class RegistrationTest extends TestCase
             }
         }
 
-        self::assertContains('MageDevGroup_SsoCore', $sequenced);
+        self::assertContains('DmLab_SsoCore', $sequenced);
     }
 }

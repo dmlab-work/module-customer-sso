@@ -1,13 +1,13 @@
 <?php
 /**
- * Copyright © MageDevGroup. All rights reserved.
+ * Copyright © DMLab. All rights reserved.
  */
 declare(strict_types=1);
 
-namespace MageDevGroup\CustomerSso\Test\Unit\Model;
+namespace DmLab\CustomerSso\Test\Unit\Model;
 
-use MageDevGroup\CustomerSso\Model\PresetRegistry;
-use MageDevGroup\SsoCore\Api\ProviderPresetInterface;
+use DmLab\CustomerSso\Model\PresetRegistry;
+use DmLab\SsoCore\Api\ProviderPresetInterface;
 use Magento\Framework\Exception\NoSuchEntityException;
 use PHPUnit\Framework\TestCase;
 
