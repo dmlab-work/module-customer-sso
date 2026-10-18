@@ -1,0 +1,56 @@
+"Please sign in to link single sign-on.","Please sign in to link single sign-on."
+"Could not start linking single sign-on. Please try again or contact the store owner.","Could not start linking single sign-on. Please try again or contact the store owner."
+"Please sign in to manage single sign-on.","Please sign in to manage single sign-on."
+"Single sign-on has been unlinked from your account.","Single sign-on has been unlinked from your account."
+"No single sign-on link was found for this provider.","No single sign-on link was found for this provider."
+"The SSO sign-in response was incomplete. Please try again.","The SSO sign-in response was incomplete. Please try again."
+"Could not complete SSO sign-in. Please try again or contact the store owner.","Could not complete SSO sign-in. Please try again or contact the store owner."
+"Your session changed. Please sign in and try linking again.","Your session changed. Please sign in and try linking again."
+"Could not link single sign-on. Please try again or contact the store owner.","Could not link single sign-on. Please try again or contact the store owner."
+"Single sign-on has been linked to your account.","Single sign-on has been linked to your account."
+"The identity provider rejected the sign-in: %1","The identity provider rejected the sign-in: %1"
+"Could not start SSO sign-in. Please try again or contact the store owner.","Could not start SSO sign-in. Please try again or contact the store owner."
+"-- Please Select --","-- Please Select --"
+"Link when the IdP verified the email","Link when the IdP verified the email"
+"Never (link from My Account only)","Never (link from My Account only)"
+"A customer account with this email is already linked to a different single sign-on identity.","A customer account with this email is already linked to a different single sign-on identity."
+"This sign-in identity is linked to a customer account on another website.","This sign-in identity is linked to a customer account on another website."
+"An account with this email address already exists. Sign in with your password, then link single sign-on under My Account → Single Sign-On.","An account with this email address already exists. Sign in with your password, then link single sign-on under My Account → Single Sign-On."
+"The identity provider did not release an email address required to create a customer account.","The identity provider did not release an email address required to create a customer account."
+"Your identity provider has not verified your email address, so a store account cannot be created. Verify the email with your provider, or sign in with your password and link single sign-on under My Account → Single Sign-On.","Your identity provider has not verified your email address, so a store account cannot be created. Verify the email with your provider, or sign in with your password and link single sign-on under My Account → Single Sign-On."
+"Single sign-on is not configured for this store.","Single sign-on is not configured for this store."
+"This sign-in identity is already linked to another account.","This sign-in identity is already linked to another account."
+"Your account is already linked to another identity from this provider. Unlink it first.","Your account is already linked to another identity from this provider. Unlink it first."
+"Customer SSO is disabled.","Customer SSO is disabled."
+"No customer SSO provider is configured.","No customer SSO provider is configured."
+"The customer SSO client ID is not configured.","The customer SSO client ID is not configured."
+"The SSO sign-in session is invalid or has expired. Please try again.","The SSO sign-in session is invalid or has expired. Please try again."
+"No SSO provider preset is registered for code ""%1"".","No SSO provider preset is registered for code ""%1""."
+"Linked identities","Linked identities"
+Provider,Provider
+"Linked on","Linked on"
+Action,Action
+Unlink,Unlink
+"No single sign-on identity is linked to your account.","No single sign-on identity is linked to your account."
+"Link %1","Link %1"
+DMLab,DMLab
+"Customer SSO","Customer SSO"
+General,General
+"Enable Customer SSO","Enable Customer SSO"
+"Identity Provider","Identity Provider"
+"The list is populated by installed provider plugins (e.g. customer-sso-okta).","The list is populated by installed provider plugins (e.g. customer-sso-okta)."
+"Client ID","Client ID"
+"Client Secret","Client Secret"
+"Keep Password Login","Keep Password Login"
+"Keeps the native email/password login form visible alongside the SSO button.","Keeps the native email/password login form visible alongside the SSO button."
+"Account Linking by Email","Account Linking by Email"
+"When an SSO email matches an existing customer: link it only if
+                        the IdP marked the email verified, or never (the customer links from
+                        My Account → Single Sign-On).","When an SSO email matches an existing customer: link it only if
+                        the IdP marked the email verified, or never (the customer links from
+                        My Account → Single Sign-On)."
+"Group to Customer-Group Map","Group to Customer-Group Map"
+"One rule per line as <code>idp_group=customer_group_id</code>.
+                        Blank lines and <code>#</code> comments are ignored.","One rule per line as <code>idp_group=customer_group_id</code>.
+                        Blank lines and <code>#</code> comments are ignored."
+"Single Sign-On","Single Sign-On"

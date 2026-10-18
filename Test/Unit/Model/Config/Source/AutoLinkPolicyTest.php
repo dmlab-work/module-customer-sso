@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -12,16 +13,17 @@ use PHPUnit\Framework\TestCase;
 
 class AutoLinkPolicyTest extends TestCase
 {
-    public function testExposesBothPoliciesWithVerificationFirst(): void
+    public function testExposesVerifiedAndDisabledPoliciesWithVerifiedFirst(): void
     {
         $options = (new AutoLinkPolicy())->toOptionArray();
 
         self::assertSame(
-            [Config::AUTO_LINK_REQUIRE_VERIFICATION, Config::AUTO_LINK_AUTO],
+            [Config::AUTO_LINK_REQUIRE_VERIFICATION, Config::AUTO_LINK_DISABLED],
             array_column($options, 'value')
         );
-        foreach ($options as $option) {
-            self::assertNotSame('', (string)$option['label']);
-        }
+        self::assertSame(
+            ['Link when the IdP verified the email', 'Never (link from My Account only)'],
+            array_map(static fn (array $option): string => (string)$option['label'], $options)
+        );
     }
 }

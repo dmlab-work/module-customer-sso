@@ -2,6 +2,7 @@
 <!--
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 -->
 <schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -10,10 +11,10 @@
          Customers are EAV/API entities, so — unlike admin_user, where the subject is
          a column on the table — the link lives in its own table and is managed through
          the customer repository. `sub` is only unique per issuer, so the link is scoped
-         by the active provider code: (provider_code, subject_id) is unique (one IdP
-         identity → at most one customer), guarding against a `sub` collision across
-         providers resolving to the wrong account. The row is removed with its customer
-         via the FK cascade. -->
+         by provider code: (provider_code, subject_id) is unique (one IdP identity → at
+         most one customer) and the PK (customer_id, provider_code) allows one identity
+         per provider per customer. The rows are removed with their customer via the FK
+         cascade. -->
     <table name="dmlab_customer_sso_subject" resource="default" engine="innodb"
            comment="DmLab Customer SSO subject links">
         <column xsi:type="int" name="customer_id" unsigned="true" nullable="false"
@@ -22,8 +23,11 @@
                 comment="Active SSO provider code that issued the subject"/>
         <column xsi:type="varchar" name="subject_id" nullable="false" length="255"
                 comment="IdP subject identifier (sub claim)"/>
+        <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false"
+                default="CURRENT_TIMESTAMP" comment="Link creation time"/>
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="customer_id"/>
+            <column name="provider_code"/>
         </constraint>
         <constraint xsi:type="unique" referenceId="DMLAB_CUSTOMER_SSO_SUBJECT_ID">
             <column name="provider_code"/>

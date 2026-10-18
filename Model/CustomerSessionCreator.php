@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -8,6 +9,8 @@ namespace DmLab\CustomerSso\Model;
 
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Model\Session;
+use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
+use Magento\Framework\Stdlib\CookieManagerInterface;
 
 /**
  * Establishes an authenticated storefront session for a provisioned customer,
@@ -24,20 +27,37 @@ use Magento\Customer\Model\Session;
 class CustomerSessionCreator
 {
     /**
+     * Private-content cookie; `customer-data.js` drops all cached sections when it is missing.
+     */
+    private const PRIVATE_CONTENT_COOKIE = 'mage-cache-sessid';
+
+    /**
      * @param Session $customerSession
+     * @param CookieManagerInterface $cookieManager
+     * @param CookieMetadataFactory $cookieMetadataFactory
      */
     public function __construct(
-        private readonly Session $customerSession
+        private readonly Session $customerSession,
+        private readonly CookieManagerInterface $cookieManager,
+        private readonly CookieMetadataFactory $cookieMetadataFactory
     ) {
     }
 
     /**
      * Log the given customer into the current storefront session.
      *
+     * Also resets private content, as native `LoginPost` does — the GET callback is not covered by `sections.xml`.
+     *
      * @param CustomerInterface $customer persisted customer to authenticate
      */
     public function create(CustomerInterface $customer): void
     {
         $this->customerSession->setCustomerDataAsLoggedIn($customer);
+
+        if ($this->cookieManager->getCookie(self::PRIVATE_CONTENT_COOKIE)) {
+            $metadata = $this->cookieMetadataFactory->createCookieMetadata();
+            $metadata->setPath('/');
+            $this->cookieManager->deleteCookie(self::PRIVATE_CONTENT_COOKIE, $metadata);
+        }
     }
 }

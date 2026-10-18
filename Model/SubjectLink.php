@@ -1,12 +1,15 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
 namespace DmLab\CustomerSso\Model;
 
 use Magento\Framework\App\ResourceConnection;
+use Magento\Framework\DB\Adapter\DuplicateException;
+use Magento\Framework\Exception\LocalizedException;
 
 /**
  * Storage for the IdP-subject → customer link (see etc/db_schema.xml).
@@ -60,41 +63,67 @@ class SubjectLink
     }
 
     /**
-     * IdP identity (provider code + subject) linked to the given customer, or null.
-     *
-     * Returns the full pair because `sub` is only unique per issuer: the same subject
-     * string under a different provider is a different identity, so the caller's
-     * takeover guard must compare provider code too.
+     * Subject the customer holds under the given provider, or null.
      *
      * @param int $customerId
-     * @return array{provider_code:string,subject_id:string}|null
+     * @param string $providerCode SSO provider code
      */
-    public function getIdentityByCustomerId(int $customerId): ?array
+    public function getSubjectForProvider(int $customerId, string $providerCode): ?string
     {
-        if ($customerId <= 0) {
+        if ($customerId <= 0 || $providerCode === '') {
             return null;
         }
 
         $connection = $this->resource->getConnection();
         $select = $connection->select()
-            ->from($this->resource->getTableName(self::TABLE), ['provider_code', 'subject_id'])
+            ->from($this->resource->getTableName(self::TABLE), 'subject_id')
             ->where('customer_id = ?', $customerId)
+            ->where('provider_code = ?', $providerCode)
             ->limit(1);
 
-        $row = $connection->fetchRow($select);
+        $subjectId = $connection->fetchOne($select);
 
-        return is_array($row) && isset($row['provider_code'], $row['subject_id'])
-            && $row['provider_code'] !== '' && $row['subject_id'] !== ''
-            ? ['provider_code' => (string)$row['provider_code'], 'subject_id' => (string)$row['subject_id']]
-            : null;
+        return is_string($subjectId) && $subjectId !== '' ? $subjectId : null;
     }
 
     /**
-     * Persist (or refresh) the subject link for a customer. Idempotent.
+     * All identities linked to the customer, oldest first.
      *
      * @param int $customerId
-     * @param string $providerCode active SSO provider code that issued the subject
+     * @return list<array{provider_code:string,subject_id:string,created_at:string}>
+     */
+    public function getLinksByCustomerId(int $customerId): array
+    {
+        if ($customerId <= 0) {
+            return [];
+        }
+
+        $connection = $this->resource->getConnection();
+        $select = $connection->select()
+            ->from($this->resource->getTableName(self::TABLE), ['provider_code', 'subject_id', 'created_at'])
+            ->where('customer_id = ?', $customerId)
+            ->order(['created_at ASC', 'provider_code ASC']);
+
+        $links = [];
+        foreach ($connection->fetchAll($select) as $row) {
+            $links[] = [
+                'provider_code' => (string)$row['provider_code'],
+                'subject_id' => (string)$row['subject_id'],
+                'created_at' => (string)$row['created_at'],
+            ];
+        }
+
+        return $links;
+    }
+
+    /**
+     * Link a subject to a customer. Never overwrites an existing link.
+     *
+     * @param int $customerId
+     * @param string $providerCode SSO provider code that issued the subject
      * @param string $subjectId
+     * @throws LocalizedException when the customer already holds an identity for the
+     *         provider, or the identity belongs to another customer
      */
     public function link(int $customerId, string $providerCode, string $subjectId): void
     {
@@ -102,11 +131,34 @@ class SubjectLink
             return;
         }
 
-        $connection = $this->resource->getConnection();
-        $connection->insertOnDuplicate(
+        try {
+            $this->resource->getConnection()->insert(
+                $this->resource->getTableName(self::TABLE),
+                ['customer_id' => $customerId, 'provider_code' => $providerCode, 'subject_id' => $subjectId]
+            );
+        } catch (DuplicateException $e) {
+            throw new LocalizedException(__('This sign-in identity is already linked to another account.'), $e);
+        }
+    }
+
+    /**
+     * Remove the customer's link for the given provider.
+     *
+     * @param int $customerId
+     * @param string $providerCode
+     * @return bool true when a link was removed
+     */
+    public function unlink(int $customerId, string $providerCode): bool
+    {
+        if ($customerId <= 0 || $providerCode === '') {
+            return false;
+        }
+
+        $deleted = $this->resource->getConnection()->delete(
             $this->resource->getTableName(self::TABLE),
-            ['customer_id' => $customerId, 'provider_code' => $providerCode, 'subject_id' => $subjectId],
-            ['provider_code', 'subject_id']
+            ['customer_id = ?' => $customerId, 'provider_code = ?' => $providerCode]
         );
+
+        return $deleted > 0;
     }
 }

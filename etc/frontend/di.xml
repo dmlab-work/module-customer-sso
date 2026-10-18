@@ -2,6 +2,7 @@
 <!--
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -13,5 +14,35 @@
     <type name="Magento\Customer\Block\Form\Login">
         <plugin name="dmlab_customer_sso_hide_password_login"
                 type="DmLab\CustomerSso\Plugin\HidePasswordLoginForm"/>
+    </type>
+    <!-- SSO button in the Luma checkout login popups (minicart popup and checkout authentication step). -->
+    <virtualType name="DmLab\CustomerSso\Block\Checkout\PopupSsoButtonProcessor"
+                 type="DmLab\CustomerSso\Block\Checkout\SsoButtonProcessor">
+        <arguments>
+            <argument name="childrenPath" xsi:type="string">components/authenticationPopup/children</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="DmLab\CustomerSso\Block\Checkout\OnepageSsoButtonProcessor"
+                 type="DmLab\CustomerSso\Block\Checkout\SsoButtonProcessor">
+        <arguments>
+            <argument name="childrenPath"
+                      xsi:type="string">components/checkout/children/authentication/children</argument>
+        </arguments>
+    </virtualType>
+    <type name="Magento\Customer\Block\Account\AuthenticationPopup">
+        <arguments>
+            <argument name="layoutProcessors" xsi:type="array">
+                <item name="dmlabCustomerSsoButton"
+                      xsi:type="object">DmLab\CustomerSso\Block\Checkout\PopupSsoButtonProcessor</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Magento\Checkout\Block\Onepage">
+        <arguments>
+            <argument name="layoutProcessors" xsi:type="array">
+                <item name="dmlabCustomerSsoButton"
+                      xsi:type="object">DmLab\CustomerSso\Block\Checkout\OnepageSsoButtonProcessor</item>
+            </argument>
+        </arguments>
     </type>
 </config>

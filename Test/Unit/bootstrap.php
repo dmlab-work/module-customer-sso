@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  *
  * Standalone unit-test bootstrap: loads Magento's Composer autoloader (for the
  * framework classes), registers PSR-4 maps for this module and its sibling
@@ -52,4 +53,24 @@ spl_autoload_register(static function (string $class) use ($psr4): void {
     }
 });
 
-require $moduleRoot . '/registration.php';
+// Composer-installed modules are already registered by Magento's autoloader.
+try {
+    require $moduleRoot . '/registration.php';
+} catch (\LogicException $e) {
+    // Already registered.
+}
+
+// Generate Factory/Proxy/ExtensionAttributes classes on demand when Magento's generated/ code is absent.
+$generatedCodeAutoloader = new \Magento\Framework\TestFramework\Unit\Autoloader\GeneratedClassesAutoloader(
+    [
+        new \Magento\Framework\TestFramework\Unit\Autoloader\ExtensionAttributesGenerator(),
+        new \Magento\Framework\TestFramework\Unit\Autoloader\ExtensionAttributesInterfaceGenerator(),
+        new \Magento\Framework\TestFramework\Unit\Autoloader\FactoryGenerator(),
+        new \Magento\Framework\TestFramework\Unit\Autoloader\ProxyGenerator(),
+    ],
+    new \Magento\Framework\Code\Generator\Io(
+        new \Magento\Framework\Filesystem\Driver\File(),
+        sys_get_temp_dir() . '/dmlab-unit-generated'
+    )
+);
+spl_autoload_register([$generatedCodeAutoloader, 'load']);

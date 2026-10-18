@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -10,6 +11,7 @@ use DmLab\CustomerSso\Model\ActiveProviderResolver;
 use DmLab\CustomerSso\Model\Config;
 use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
 use DmLab\SsoCore\Api\Data\IdentityInterface;
+use DmLab\SsoCore\Api\DiscoveryIssuerPolicyInterface;
 use DmLab\SsoCore\Model\Oidc\DiscoveryClient;
 use DmLab\SsoCore\Model\Oidc\IdentityFactory;
 use DmLab\SsoCore\Model\Oidc\IdTokenValidator;
@@ -98,8 +100,11 @@ class CallbackHandler
             );
         }
 
+        $presetConfig = $this->presetConfig();
+
         $metadata = $this->discoveryClient->discover(
-            $preset->buildDiscoveryUrl($this->presetConfig())
+            $preset->buildDiscoveryUrl($presetConfig),
+            $preset instanceof DiscoveryIssuerPolicyInterface ? $preset->requiresIssuerMatch($presetConfig) : true
         );
 
         $tokenResponse = $this->tokenClient->exchangeCode(
@@ -113,7 +118,7 @@ class CallbackHandler
 
         $claims = $this->idTokenValidator->validate(
             $tokenResponse->getIdToken(),
-            $this->jwksClient->getKeySet($metadata->getJwksUri()),
+            $this->jwksClient->getKeySetForToken($metadata->getJwksUri(), $tokenResponse->getIdToken()),
             $metadata->getIssuer(),
             $clientId,
             $authState->getNonce()

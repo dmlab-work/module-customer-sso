@@ -2,14 +2,17 @@
 
 > Provider-agnostic single sign-on for the Magento 2 storefront (OIDC).
 
-![License](https://img.shields.io/badge/license-OSL--3.0-green) ![Magento](https://img.shields.io/badge/Magento-2.4-orange) ![PHP](https://img.shields.io/badge/PHP-8.3--8.5-blue) ![Version](https://img.shields.io/badge/version-0.0.1-lightgrey)
+[![CI](https://github.com/dmlab-work/module-customer-sso/actions/workflows/ci.yml/badge.svg)](https://github.com/dmlab-work/module-customer-sso/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/dmlab-work/module-customer-sso/graph/badge.svg)](https://codecov.io/gh/dmlab-work/module-customer-sso) [![Packagist](https://img.shields.io/packagist/dt/dmlab/module-customer-sso)](https://packagist.org/packages/dmlab/module-customer-sso)
+![License](https://img.shields.io/badge/license-OSL--3.0-green) ![Magento](https://img.shields.io/badge/Magento-2.4-orange) ![PHP](https://img.shields.io/badge/PHP-8.3--8.5-blue) ![Version](https://img.shields.io/badge/version-0.2.0-lightgrey)
 
 This is the storefront-login capability **core**: it logs shoppers in over OIDC but never references a concrete IdP. Install a provider plugin (e.g. `customer-sso-okta`) to bind it to an identity provider.
 
 ## Features
 
-- **JIT customer creation** — an unknown identity provisions a new `customer_entity` on first sign-in.
-- **Account linking** by IdP `sub` first, then by email under policy.
+- **JIT customer creation** — an unknown identity with an IdP-verified email provisions a new `customer_entity` on first sign-in.
+- **Account linking** by IdP `sub` first, then by verified email under policy, or explicitly from My Account → Single Sign-On.
+- **Checkout sign-in** — the SSO button also appears in the Luma checkout and minicart login popups and returns the shopper to checkout.
+- **Hyvä template** for the login-page button.
 - **Group mapping** — an IdP claim maps to a Magento customer group.
 - **Coexists with password login** — the native email/password form stays available (configurable).
 
@@ -42,24 +45,26 @@ Admin → Stores → Configuration → **DMLab → Customer SSO → General** (c
 | Enable Customer SSO | `enabled` | Master switch; off by default. |
 | Identity Provider | `active_provider` | Dropdown populated by installed provider plugins. |
 | Client ID | `client_id` | OIDC client id from the IdP. |
-| Client Secret | `client_secret` | Stored encrypted. |
+| Client Secret | `client_secret` | Stored encrypted; sensitive, so `app:config:dump` leaves it out — set it per environment. |
 | Keep Password Login | `allow_password_login` | On (default): native email/password form stays visible alongside SSO. Off: form is hidden once SSO is live, making login SSO-only. |
-| Account Linking by Email | `auto_link_policy` | `auto` vs `require_verification`. See below. |
+| Account Linking by Email | `auto_link_policy` | `require_verification` (default) or `disabled`. See below. |
 | Group to Customer-Group Map | `group_customer_group_map` | IdP group → customer-group rules. See below. |
 
-The "Sign in with SSO" button appears on the customer login page when the module is enabled and a provider is selected; it uses the active preset's branding. Setting *Keep Password Login* to *No* hides the native form once SSO is live. As a break-glass, the form stays visible on an unconfigured or broken install (no active provider), so a mis-set toggle can never lock shoppers out.
+The "Sign in with SSO" button appears on the customer login page and in the Luma checkout login popups (authentication popup and the checkout authentication step) when the module is enabled and a provider is selected; it uses the active preset's branding. Popup sign-in returns the shopper to checkout. Custom placements can link to `customersso/sso/start?referer=<base64 URL>` to return to that page; a URL off the store's own origin is ignored. Setting *Keep Password Login* to *No* hides the native form once SSO is live. As a break-glass, the form stays visible on an unconfigured or broken install (no active provider), so a mis-set toggle can never lock shoppers out.
 
 ## Account linking
 
 An SSO identity is matched to a customer in this order:
 
-1. **By IdP `sub`** — the stable subject stored in `dmlab_customer_sso_subject` on first link. A customer is EAV/API-backed, so the link lives in its own table rather than a column on the entity.
+1. **By IdP `sub`** — the subject stored in `dmlab_customer_sso_subject` per provider. Signs in regardless of email verification.
 2. **By email**, governed by `auto_link_policy`:
-   - `auto` — a matching email signs straight into the existing customer.
-   - `require_verification` (default) — email linking is refused until the email is proven, preventing account takeover via an unverified IdP email.
-3. **JIT create** — no match → a new `customer_entity` is provisioned from the identity, and the `sub` is stored for stable re-login.
+   - `require_verification` (default) — adopt the existing customer only when the IdP marks the email verified (`email_verified`). Legacy `auto` resolves to this.
+   - `disabled` — never link by email.
 
-`require_verification` is the safe default; switch to `auto` only when the IdP guarantees verified emails.
+   Otherwise the login is refused and the shopper is told to sign in with their password and link from My Account — keep *Keep Password Login* on if existing customers may need this path.
+3. **JIT create** — no match → a new customer is created only when the IdP marks the email verified; an unverified email is refused and nothing is created.
+
+**Explicit linking** — a signed-in customer links or unlinks an identity under **My Account → Single Sign-On** (`customersso/account`). The session already proves ownership, so the verified flag is not checked; the link is bound to the session customer. A customer holds at most one identity per provider, and an identity belongs to one customer.
 
 ## Group → customer-group mapping
 
@@ -73,16 +78,25 @@ vip=3
 
 With no rules configured this is inert: customer groups are never touched, so a store using SSO only for login keeps its manually assigned groups. Once a map exists, groups are resolved on JIT create and refreshed on every login, so IdP group changes take effect at next sign-in. An identity whose groups match no rule reverts to the store's default customer group (`GroupManagementInterface::getDefaultGroup`) — customers always hold a valid group. A rule pointing at a non-existent group id is skipped, leaving the current group unchanged.
 
+## Hyvä
+
+The default button template uses Luma markup. In a Hyvä theme, point the block at the bundled Tailwind template in the theme's `Magento_Customer/layout/customer_account_login.xml`:
+
+```xml
+<referenceBlock name="dmlab.customer.sso.button" template="DmLab_CustomerSso::login/sso-button-hyva.phtml"/>
+```
+
 ## How it works
 
-1. Shopper clicks "Sign in with SSO" → `customersso/sso/start` builds the OIDC auth URL (state + nonce + PKCE) via sso-core and the active preset, persists that state in the customer session, then redirects to the IdP.
-2. IdP redirects back to `customersso/sso/callback`, which validates `state`, exchanges the code, and normalizes claims into an `Identity` via sso-core. IdP error responses return to the login page with a message.
-3. The customer is matched (`sub` → email-under-policy → JIT create) and the `sub` link is stored.
-4. The customer group is resolved from IdP groups and the storefront customer session is established.
+1. Shopper clicks "Sign in with SSO" → `customersso/sso/start` builds the OIDC auth URL (state + nonce + PKCE) via sso-core and the active preset, persists the state and a `login` intent (optional own-origin return URL) in the customer session, then redirects to the IdP. Linking starts the same way from `customersso/account/link` (POST, signed-in only) with a `link` intent.
+2. IdP redirects back to `customersso/sso/callback`, which validates `state`, exchanges the code, and normalizes claims into an `Identity` via sso-core. Failures return with a message to the login page, or to My Account → Single Sign-On for a `link` intent.
+3. `login`: the customer is matched (`sub` → verified email under policy → verified JIT create), the group is resolved, the session is established and `mage-cache-sessid` is reset so private content reloads; redirect to the return URL or My Account.
+4. `link`: the identity is linked to the session customer; redirect to My Account → Single Sign-On.
 
 ## Requirements
 
 - Magento **2.4.x**
+- `dmlab/module-sso-core` **^0.2** (installed automatically)
 - PHP **8.3 – 8.5**
 
 ## Part of the DMLab identity suite

@@ -1,0 +1,67 @@
+<?php
+/**
+ * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
+ *
+ * @var \DmLab\CustomerSso\Block\Account\LinkedIdentities $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+?>
+<?php $links = $block->getLinks(); ?>
+<div class="block dmlab-customer-sso-identities">
+    <div class="block-content">
+        <?php if ($links): ?>
+            <div class="table-wrapper">
+                <table class="data table">
+                    <caption class="table-caption"><?= $escaper->escapeHtml(__('Linked identities')) ?></caption>
+                    <thead>
+                    <tr>
+                        <th scope="col" class="col"><?= $escaper->escapeHtml(__('Provider')) ?></th>
+                        <th scope="col" class="col"><?= $escaper->escapeHtml(__('Linked on')) ?></th>
+                        <th scope="col" class="col actions"><?= $escaper->escapeHtml(__('Action')) ?></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($links as $link): ?>
+                        <tr>
+                            <td class="col" data-th="<?= $escaper->escapeHtmlAttr(__('Provider')) ?>">
+                                <?= $escaper->escapeHtml($link['label']) ?>
+                            </td>
+                            <td class="col" data-th="<?= $escaper->escapeHtmlAttr(__('Linked on')) ?>">
+                                <?= $escaper->escapeHtml($block->formatDate($link['created_at'])) ?>
+                            </td>
+                            <td class="col actions" data-th="<?= $escaper->escapeHtmlAttr(__('Action')) ?>">
+                                <form method="post" action="<?= $escaper->escapeUrl($block->getUnlinkUrl()) ?>">
+                                    <?= $block->getBlockHtml('formkey') ?>
+                                    <input type="hidden" name="provider_code"
+                                           value="<?= $escaper->escapeHtmlAttr($link['provider_code']) ?>" />
+                                    <button type="submit" class="action delete">
+                                        <span><?= $escaper->escapeHtml(__('Unlink')) ?></span>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class="message info empty">
+                <span><?= $escaper->escapeHtml(__('No single sign-on identity is linked to your account.')) ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if ($block->canLink()): ?>
+            <form method="post" action="<?= $escaper->escapeUrl($block->getLinkUrl()) ?>">
+                <?= $block->getBlockHtml('formkey') ?>
+                <div class="actions-toolbar">
+                    <div class="primary">
+                        <button type="submit" class="action primary">
+                            <?php $linkLabel = __('Link %1', $block->getActiveProviderLabel()); ?>
+                            <span><?= $escaper->escapeHtml($linkLabel) ?></span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        <?php endif; ?>
+    </div>
+</div>

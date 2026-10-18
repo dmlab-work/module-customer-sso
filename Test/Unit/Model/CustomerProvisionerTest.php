@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -14,6 +15,7 @@ use DmLab\SsoCore\Model\Data\Identity;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\Data\CustomerInterfaceFactory;
+use Magento\Customer\Model\Config\Share;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Store\Api\Data\StoreInterface;
@@ -23,6 +25,9 @@ use PHPUnit\Framework\TestCase;
 
 class CustomerProvisionerTest extends TestCase
 {
+    private const EMAIL_EXISTS_MESSAGE = 'An account with this email address already exists. Sign in with your '
+        . 'password, then link single sign-on under My Account → Single Sign-On.';
+
     /** @var CustomerInterfaceFactory&MockObject */
     private $customerFactory;
 
@@ -41,6 +46,9 @@ class CustomerProvisionerTest extends TestCase
     /** @var ActiveProviderResolver&\PHPUnit\Framework\MockObject\Stub */
     private $activeProviderResolver;
 
+    /** @var Share&\PHPUnit\Framework\MockObject\Stub */
+    private $shareConfig;
+
     /** @var CustomerProvisioner */
     private CustomerProvisioner $provisioner;
 
@@ -53,6 +61,7 @@ class CustomerProvisionerTest extends TestCase
         $this->config = $this->createStub(Config::class);
         $this->activeProviderResolver = $this->createStub(ActiveProviderResolver::class);
         $this->activeProviderResolver->method('getActiveCode')->willReturn('okta');
+        $this->shareConfig = $this->createStub(Share::class);
 
         $store = $this->createStub(StoreInterface::class);
         $store->method('getId')->willReturn(3);
@@ -65,7 +74,8 @@ class CustomerProvisionerTest extends TestCase
             $this->storeManager,
             $this->subjectLink,
             $this->config,
-            $this->activeProviderResolver
+            $this->activeProviderResolver,
+            $this->shareConfig
         );
     }
 
@@ -151,7 +161,7 @@ class CustomerProvisionerTest extends TestCase
             ->willReturn($this->savedCustomer(42));
         $this->subjectLink->expects(self::once())->method('link')->with(42, 'okta', 'sub-1');
 
-        $identity = new Identity('sub-1', 'Jane.Doe@Example.com', 'Jane Doe', ['shoppers']);
+        $identity = new Identity('sub-1', 'Jane.Doe@Example.com', 'Jane Doe', ['shoppers'], true);
 
         $result = $this->provisioner->provision($identity);
 
@@ -163,6 +173,25 @@ class CustomerProvisionerTest extends TestCase
             'firstname' => 'Jane',
             'lastname' => 'Doe',
         ], $captured);
+    }
+
+    public function testRefusesJitCreationWhenEmailUnverified(): void
+    {
+        $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
+        $this->noEmailMatch();
+
+        $this->customerFactory->expects(self::never())->method('create');
+        $this->customerRepository->expects(self::never())->method('save');
+        $this->subjectLink->expects(self::never())->method('link');
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage(
+            'Your identity provider has not verified your email address, so a store account cannot be created. '
+            . 'Verify the email with your provider, or sign in with your password and link single sign-on under '
+            . 'My Account → Single Sign-On.'
+        );
+
+        $this->provisioner->provision(new Identity('sub-1', 'jane@example.com', 'Jane Doe', [], false));
     }
 
     public function testThrowsWhenIdentityHasNoEmail(): void
@@ -177,7 +206,7 @@ class CustomerProvisionerTest extends TestCase
             'The identity provider did not release an email address required to create a customer account.'
         );
 
-        $this->provisioner->provision(new Identity('sub-x', null, 'No Email', []));
+        $this->provisioner->provision(new Identity('sub-x', null, 'No Email', [], true));
     }
 
     public function testFallbackLastNameForSingleWordName(): void
@@ -192,7 +221,7 @@ class CustomerProvisionerTest extends TestCase
         $this->customerRepository->expects(self::once())->method('save')
             ->willReturn($this->savedCustomer(1));
 
-        $this->provisioner->provision(new Identity('sub-2', 'madonna@example.com', 'Madonna', []));
+        $this->provisioner->provision(new Identity('sub-2', 'madonna@example.com', 'Madonna', [], true));
 
         self::assertSame('Madonna', $captured['firstname']);
         self::assertSame('SSO', $captured['lastname']);
@@ -210,7 +239,7 @@ class CustomerProvisionerTest extends TestCase
         $this->customerRepository->expects(self::once())->method('save')
             ->willReturn($this->savedCustomer(1));
 
-        $this->provisioner->provision(new Identity('sub-3', 'shopper@example.com', null, []));
+        $this->provisioner->provision(new Identity('sub-3', 'shopper@example.com', null, [], true));
 
         self::assertSame('shopper', $captured['firstname']);
         self::assertSame('SSO', $captured['lastname']);
@@ -228,7 +257,7 @@ class CustomerProvisionerTest extends TestCase
         $this->customerRepository->expects(self::once())->method('save')
             ->willReturn($this->savedCustomer(1));
 
-        $this->provisioner->provision(new Identity('sub-4', 'user@example.com', 'Ada Van Der Berg', []));
+        $this->provisioner->provision(new Identity('sub-4', 'user@example.com', 'Ada Van Der Berg', [], true));
 
         self::assertSame('Ada', $captured['firstname']);
         self::assertSame('Van Der Berg', $captured['lastname']);
@@ -236,7 +265,7 @@ class CustomerProvisionerTest extends TestCase
 
     // --- Link by subject (stable re-login) -----------------------------------
 
-    public function testResolvesExistingCustomerBySubject(): void
+    public function testResolvesExistingCustomerBySubjectEvenWhenEmailUnverified(): void
     {
         $existing = $this->savedCustomer(55);
 
@@ -248,7 +277,43 @@ class CustomerProvisionerTest extends TestCase
 
         self::assertSame(
             $existing,
-            $this->provisioner->provision(new Identity('sub-1', 'jane@example.com', 'Jane', []))
+            $this->provisioner->provision(new Identity('sub-1', 'jane@example.com', 'Jane', [], false))
+        );
+    }
+
+    public function testRefusesSubjectLinkedCustomerFromAnotherWebsiteUnderWebsiteScope(): void
+    {
+        $this->shareConfig->method('isWebsiteScope')->willReturn(true);
+        $foreign = $this->createStub(CustomerInterface::class);
+        $foreign->method('getWebsiteId')->willReturn(2);
+
+        $this->subjectLink->method('findCustomerIdBySubject')->willReturn(55);
+        $this->subjectLink->expects(self::never())->method('link');
+        $this->customerRepository->method('getById')->willReturn($foreign);
+        $this->customerRepository->expects(self::never())->method('save');
+        $this->customerFactory->expects(self::never())->method('create');
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage('This sign-in identity is linked to a customer account on another website.');
+
+        $this->provisioner->provision(new Identity('sub-1', 'jane@example.com', 'Jane', [], true));
+    }
+
+    public function testResolvesSubjectLinkedCustomerFromAnotherWebsiteUnderGlobalScope(): void
+    {
+        $this->shareConfig->method('isWebsiteScope')->willReturn(false);
+        $foreign = $this->createStub(CustomerInterface::class);
+        $foreign->method('getWebsiteId')->willReturn(2);
+
+        $this->subjectLink->method('findCustomerIdBySubject')->willReturn(55);
+        $this->subjectLink->expects(self::never())->method('link');
+        $this->customerRepository->method('getById')->willReturn($foreign);
+        $this->customerRepository->expects(self::never())->method('save');
+        $this->customerFactory->expects(self::never())->method('create');
+
+        self::assertSame(
+            $foreign,
+            $this->provisioner->provision(new Identity('sub-1', 'jane@example.com', 'Jane', [], true))
         );
     }
 
@@ -267,20 +332,20 @@ class CustomerProvisionerTest extends TestCase
         $this->customerRepository->expects(self::once())->method('save')
             ->willReturn($this->savedCustomer(1));
 
-        $this->provisioner->provision(new Identity('sub-1', 'ghost@example.com', 'Ghost', []));
+        $this->provisioner->provision(new Identity('sub-1', 'ghost@example.com', 'Ghost', [], true));
 
         self::assertSame('ghost@example.com', $captured['email']);
     }
 
     // --- Link by email (under policy) ----------------------------------------
 
-    public function testLinksByEmailWhenAutoLinkAllowed(): void
+    public function testLinksByEmailWhenVerifiedAndLinkingEnabled(): void
     {
         $existing = $this->savedCustomer(7);
 
         $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
-        $this->subjectLink->method('getIdentityByCustomerId')->with(7)->willReturn(null);
-        $this->config->method('isAutoLinkByEmailAllowed')->willReturn(true);
+        $this->subjectLink->method('getSubjectForProvider')->with(7, 'okta')->willReturn(null);
+        $this->config->method('isEmailLinkingEnabled')->willReturn(true);
 
         $this->customerRepository->expects(self::once())
             ->method('get')->with('jane@example.com', 1)->willReturn($existing);
@@ -290,7 +355,7 @@ class CustomerProvisionerTest extends TestCase
 
         self::assertSame(
             $existing,
-            $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', []))
+            $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', [], true))
         );
     }
 
@@ -299,8 +364,8 @@ class CustomerProvisionerTest extends TestCase
         $existing = $this->savedCustomer(7);
 
         $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
-        $this->subjectLink->method('getIdentityByCustomerId')->with(7)->willReturn(null);
-        $this->config->method('isAutoLinkByEmailAllowed')->willReturn(true);
+        $this->subjectLink->method('getSubjectForProvider')->with(7, 'okta')->willReturn(null);
+        $this->config->method('isEmailLinkingEnabled')->willReturn(true);
 
         // The IdP releases a mixed-case email; the lookup must normalize to lower case
         // so the pre-existing lower-case account is matched (no duplicate JIT create).
@@ -312,26 +377,46 @@ class CustomerProvisionerTest extends TestCase
 
         self::assertSame(
             $existing,
-            $this->provisioner->provision(new Identity('sub-new', 'JANE@Example.com', 'Jane', []))
+            $this->provisioner->provision(new Identity('sub-new', 'JANE@Example.com', 'Jane', [], true))
         );
     }
 
-    public function testBlocksEmailLinkWhenPolicyRequiresVerification(): void
+    public function testRefusesEmailLinkWhenEmailUnverified(): void
     {
         $existing = $this->savedCustomer(7);
 
         $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
-        $this->subjectLink->method('getIdentityByCustomerId')->willReturn(null);
-        $this->config->method('isAutoLinkByEmailAllowed')->willReturn(false);
+        $this->subjectLink->method('getSubjectForProvider')->willReturn(null);
+        $this->config->method('isEmailLinkingEnabled')->willReturn(true);
 
         $this->customerRepository->expects(self::once())->method('get')->willReturn($existing);
+        $this->customerRepository->expects(self::never())->method('save');
         $this->customerFactory->expects(self::never())->method('create');
         $this->subjectLink->expects(self::never())->method('link');
 
         $this->expectException(LocalizedException::class);
-        $this->expectExceptionMessage('Please sign in with your password to enable single sign-on');
+        $this->expectExceptionMessage(self::EMAIL_EXISTS_MESSAGE);
 
-        $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', []));
+        $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', [], false));
+    }
+
+    public function testRefusesEmailLinkWhenLinkingDisabledEvenIfVerified(): void
+    {
+        $existing = $this->savedCustomer(7);
+
+        $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
+        $this->subjectLink->method('getSubjectForProvider')->willReturn(null);
+        $this->config->method('isEmailLinkingEnabled')->willReturn(false);
+
+        $this->customerRepository->expects(self::once())->method('get')->willReturn($existing);
+        $this->customerRepository->expects(self::never())->method('save');
+        $this->customerFactory->expects(self::never())->method('create');
+        $this->subjectLink->expects(self::never())->method('link');
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessage(self::EMAIL_EXISTS_MESSAGE);
+
+        $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', [], true));
     }
 
     public function testBlocksEmailLinkWhenAccountBoundToDifferentSubject(): void
@@ -339,10 +424,9 @@ class CustomerProvisionerTest extends TestCase
         $existing = $this->savedCustomer(7);
 
         $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
-        $this->subjectLink->method('getIdentityByCustomerId')->with(7)
-            ->willReturn(['provider_code' => 'okta', 'subject_id' => 'other-sub']);
+        $this->subjectLink->method('getSubjectForProvider')->with(7, 'okta')->willReturn('other-sub');
         // Even with auto-link enabled, an account owned by another subject is off limits.
-        $this->config->method('isAutoLinkByEmailAllowed')->willReturn(true);
+        $this->config->method('isEmailLinkingEnabled')->willReturn(true);
 
         $this->customerRepository->expects(self::once())->method('get')->willReturn($existing);
         $this->customerFactory->expects(self::never())->method('create');
@@ -351,28 +435,27 @@ class CustomerProvisionerTest extends TestCase
         $this->expectException(LocalizedException::class);
         $this->expectExceptionMessage('already linked to a different single sign-on identity');
 
-        $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', []));
+        $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', [], true));
     }
 
-    public function testBlocksEmailLinkWhenAccountBoundToSameSubjectUnderAnotherProvider(): void
+    public function testLinkUnderAnotherProviderDoesNotBlockEmailLink(): void
     {
-        // `sub` is only unique per issuer: an identical subject string from a different
-        // provider is a different identity and must not take over the account.
+        // The guard is per provider: an 'azure' link on the account must not block
+        // adopting it under the active 'okta' provider.
         $existing = $this->savedCustomer(7);
 
         $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
-        $this->subjectLink->method('getIdentityByCustomerId')->with(7)
-            ->willReturn(['provider_code' => 'azure', 'subject_id' => 'sub-collide']);
-        $this->config->method('isAutoLinkByEmailAllowed')->willReturn(true);
+        $this->subjectLink->expects(self::once())->method('getSubjectForProvider')
+            ->with(7, 'okta')->willReturn(null);
+        $this->config->method('isEmailLinkingEnabled')->willReturn(true);
 
         $this->customerRepository->expects(self::once())->method('get')->willReturn($existing);
         $this->customerFactory->expects(self::never())->method('create');
-        $this->subjectLink->expects(self::never())->method('link');
+        $this->subjectLink->expects(self::once())->method('link')->with(7, 'okta', 'sub-new');
 
-        $this->expectException(LocalizedException::class);
-        $this->expectExceptionMessage('already linked to a different single sign-on identity');
-
-        // Active provider is 'okta' (see setUp); the colliding subject is 'sub-collide'.
-        $this->provisioner->provision(new Identity('sub-collide', 'jane@example.com', 'Jane', []));
+        self::assertSame(
+            $existing,
+            $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', [], true))
+        );
     }
 }

@@ -2,6 +2,7 @@
 <!--
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -10,6 +11,13 @@
     <type name="DmLab\CustomerSso\Model\PresetRegistry">
         <arguments>
             <argument name="presets" xsi:type="array"/>
+        </arguments>
+    </type>
+    <type name="Magento\Config\Model\Config\TypePool">
+        <arguments>
+            <argument name="sensitive" xsi:type="array">
+                <item name="dmlab_customer_sso/general/client_secret" xsi:type="string">1</item>
+            </argument>
         </arguments>
     </type>
 </config>

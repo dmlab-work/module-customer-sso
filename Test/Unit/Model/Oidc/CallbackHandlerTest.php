@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -11,6 +12,7 @@ use DmLab\CustomerSso\Model\AuthorizationState;
 use DmLab\CustomerSso\Model\Config;
 use DmLab\CustomerSso\Model\Oidc\CallbackHandler;
 use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
+use DmLab\SsoCore\Api\DiscoveryIssuerPolicyInterface;
 use DmLab\SsoCore\Api\ProviderPresetInterface;
 use DmLab\SsoCore\Model\Data\Identity;
 use DmLab\SsoCore\Model\Oidc\DiscoveryClient;
@@ -116,7 +118,7 @@ class CallbackHandlerTest extends TestCase
     {
         $this->discoveryClient->expects(self::never())->method('discover');
         $this->tokenClient->expects(self::never())->method('exchangeCode');
-        $this->jwksClient->expects(self::never())->method('getKeySet');
+        $this->jwksClient->expects(self::never())->method('getKeySetForToken');
         $this->idTokenValidator->expects(self::never())->method('validate');
         $this->identityFactory->expects(self::never())->method('create');
     }
@@ -141,7 +143,7 @@ class CallbackHandlerTest extends TestCase
 
         $this->discoveryClient->expects(self::once())
             ->method('discover')
-            ->with('https://idp.example/.well-known/openid-configuration')
+            ->with('https://idp.example/.well-known/openid-configuration', true)
             ->willReturn($this->metadata());
 
         $this->tokenClient->expects(self::once())
@@ -157,8 +159,8 @@ class CallbackHandlerTest extends TestCase
             ->willReturn(new TokenResponse('the-id-token'));
 
         $this->jwksClient->expects(self::once())
-            ->method('getKeySet')
-            ->with('https://idp.example/jwks')
+            ->method('getKeySetForToken')
+            ->with('https://idp.example/jwks', 'the-id-token')
             ->willReturn($keySet);
 
         $this->idTokenValidator->expects(self::once())
@@ -172,6 +174,44 @@ class CallbackHandlerTest extends TestCase
             ->willReturn($identity);
 
         self::assertSame($identity, $this->handler->handle(self::CODE, self::STATE));
+    }
+
+    public function testDiscoveryUsesPresetIssuerPolicy(): void
+    {
+        $preset = $this->createMockForIntersectionOfInterfaces(
+            [ProviderPresetInterface::class, DiscoveryIssuerPolicyInterface::class]
+        );
+        $preset->method('buildDiscoveryUrl')->willReturn('https://idp.example/.well-known/openid-configuration');
+        $preset->expects(self::once())
+            ->method('requiresIssuerMatch')
+            ->with(['client_id' => 'cid'])
+            ->willReturn(false);
+
+        $this->config->method('isEnabled')->willReturn(true);
+        $this->config->method('getClientId')->willReturn('cid');
+        $this->resolver->method('getActive')->willReturn($preset);
+        $this->url->method('getUrl')->willReturn(self::CALLBACK_URL);
+        $this->stateStorage->expects(self::once())
+            ->method('consume')
+            ->willReturn(new AuthorizationState(self::STATE, self::NONCE, self::VERIFIER));
+        $this->tokenClient->expects(self::once())
+            ->method('exchangeCode')
+            ->willReturn(new TokenResponse('the-id-token'));
+        $this->jwksClient->expects(self::once())
+            ->method('getKeySetForToken')
+            ->with('https://idp.example/jwks', 'the-id-token')
+            ->willReturn(new JWKSet([]));
+        $this->idTokenValidator->expects(self::once())->method('validate')->willReturn(['sub' => 'user-1']);
+        $this->identityFactory->expects(self::once())
+            ->method('create')
+            ->willReturn(new Identity('user-1', null, null, []));
+
+        $this->discoveryClient->expects(self::once())
+            ->method('discover')
+            ->with('https://idp.example/.well-known/openid-configuration', false)
+            ->willReturn($this->metadata());
+
+        $this->handler->handle(self::CODE, self::STATE);
     }
 
     public function testThrowsWhenDisabled(): void

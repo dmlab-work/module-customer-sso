@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -10,6 +11,7 @@ use DmLab\SsoCore\Api\Data\IdentityInterface;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\Data\CustomerInterfaceFactory;
+use Magento\Customer\Model\Config\Share;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Store\Model\StoreManagerInterface;
@@ -20,10 +22,13 @@ use Magento\Store\Model\StoreManagerInterface;
  *
  * Resolution order mirrors the suite contract:
  *  1. match by the stored IdP subject (`sub`) — the stable re-login key;
- *  2. else match by email and adopt the existing customer, but only under the
- *     configured auto-link policy and never over an account already bound to a
- *     different subject (email is not a stable identifier — takeover guard);
- *  3. else create a fresh `customer_entity` (JIT) and link it to the subject.
+ *  2. else match by email and adopt the existing customer, but only when the IdP
+ *     verified the email, email linking is enabled, and the account is not bound to
+ *     a different subject of the same provider (takeover guard);
+ *  3. else create a fresh `customer_entity` (JIT) and link it to the subject — only
+ *     for an IdP-verified email, so an unverified identity cannot squat an address.
+ *
+ * Re-login by subject (1) ignores the verified flag.
  *
  * Provider-neutral — the identity is already normalized by sso-core, so no
  * IdP-specific claim handling lives here. Claim → customer-group mapping is applied
@@ -50,6 +55,7 @@ class CustomerProvisioner
      * @param SubjectLink $subjectLink
      * @param Config $config
      * @param ActiveProviderResolver $activeProviderResolver
+     * @param Share $shareConfig
      */
     public function __construct(
         private readonly CustomerInterfaceFactory $customerFactory,
@@ -57,7 +63,8 @@ class CustomerProvisioner
         private readonly StoreManagerInterface $storeManager,
         private readonly SubjectLink $subjectLink,
         private readonly Config $config,
-        private readonly ActiveProviderResolver $activeProviderResolver
+        private readonly ActiveProviderResolver $activeProviderResolver,
+        private readonly Share $shareConfig
     ) {
     }
 
@@ -67,8 +74,8 @@ class CustomerProvisioner
      * @param IdentityInterface $identity verified identity from sso-core
      * @return CustomerInterface the linked or newly created customer (persisted)
      * @throws LocalizedException when an existing email match may not be linked
-     *         (policy requires verification, or it is bound to another subject), or
-     *         when a new customer must be created but the IdP released no email
+     *         (email unverified, linking disabled, or bound to another subject), or
+     *         when a new customer must be created but the email is missing or unverified
      * @throws \Magento\Framework\Exception\InputException
      * @throws \Magento\Framework\Exception\State\InputMismatchException
      */
@@ -86,7 +93,7 @@ class CustomerProvisioner
         if ($email !== null) {
             $existing = $this->findByEmail($email);
             if ($existing !== null) {
-                return $this->adoptByEmail($existing, $providerCode, $subjectId);
+                return $this->adoptByEmail($existing, $identity, $providerCode, $subjectId);
             }
         }
 
@@ -100,6 +107,7 @@ class CustomerProvisioner
      *
      * @param string $providerCode active SSO provider code
      * @param string $subjectId
+     * @throws LocalizedException when accounts are per-website and the linked customer belongs to another website
      */
     private function findLinkedCustomer(string $providerCode, string $subjectId): ?CustomerInterface
     {
@@ -109,10 +117,18 @@ class CustomerProvisioner
         }
 
         try {
-            return $this->customerRepository->getById($customerId);
+            $customer = $this->customerRepository->getById($customerId);
         } catch (NoSuchEntityException $e) {
             return null;
         }
+
+        if ($this->shareConfig->isWebsiteScope() && (int)$customer->getWebsiteId() !== $this->currentWebsiteId()) {
+            throw new LocalizedException(
+                __('This sign-in identity is linked to a customer account on another website.')
+            );
+        }
+
+        return $customer;
     }
 
     /**
@@ -131,36 +147,37 @@ class CustomerProvisioner
 
     /**
      * Adopt an existing customer matched by email, storing the subject link so future
-     * logins resolve by subject. Refuses to link when the account already belongs to
-     * a different subject (takeover guard), or when the policy requires verification.
+     * logins resolve by subject. Refuses when the account already holds a different
+     * subject for the current provider (takeover guard), when the IdP did not verify
+     * the email, or when email linking is disabled. Links under other providers do not
+     * block adoption.
      *
      * @param CustomerInterface $customer customer matched by email
+     * @param IdentityInterface $identity
      * @param string $providerCode active SSO provider code
      * @param string $subjectId
      * @throws LocalizedException when linking is not permitted
      */
     private function adoptByEmail(
         CustomerInterface $customer,
+        IdentityInterface $identity,
         string $providerCode,
         string $subjectId
     ): CustomerInterface {
         $customerId = (int)$customer->getId();
 
-        $existingIdentity = $this->subjectLink->getIdentityByCustomerId($customerId);
-        if ($existingIdentity !== null
-            && ($existingIdentity['provider_code'] !== $providerCode
-                || $existingIdentity['subject_id'] !== $subjectId)
-        ) {
+        $existingSubject = $this->subjectLink->getSubjectForProvider($customerId, $providerCode);
+        if ($existingSubject !== null && $existingSubject !== $subjectId) {
             throw new LocalizedException(
                 __('A customer account with this email is already linked to a different single sign-on identity.')
             );
         }
 
-        if (!$this->config->isAutoLinkByEmailAllowed($this->currentStoreId())) {
+        if (!$identity->isEmailVerified() || !$this->config->isEmailLinkingEnabled($this->currentStoreId())) {
             throw new LocalizedException(
                 __(
-                    'An account with this email address already exists. '
-                    . 'Please sign in with your password to enable single sign-on for it.'
+                    'An account with this email address already exists. Sign in with your password, '
+                    . 'then link single sign-on under My Account → Single Sign-On.'
                 )
             );
         }
@@ -177,7 +194,7 @@ class CustomerProvisioner
      * @param string|null $email already-normalized email, or null
      * @param string $providerCode active SSO provider code
      * @param string $subjectId
-     * @throws LocalizedException when the IdP released no email to key the account on
+     * @throws LocalizedException when the IdP released no email, or did not verify it
      */
     private function createNew(
         IdentityInterface $identity,
@@ -188,6 +205,15 @@ class CustomerProvisioner
         if ($email === null) {
             throw new LocalizedException(
                 __('The identity provider did not release an email address required to create a customer account.')
+            );
+        }
+        if (!$identity->isEmailVerified()) {
+            throw new LocalizedException(
+                __(
+                    'Your identity provider has not verified your email address, so a store account cannot be '
+                    . 'created. Verify the email with your provider, or sign in with your password and link '
+                    . 'single sign-on under My Account → Single Sign-On.'
+                )
             );
         }
 

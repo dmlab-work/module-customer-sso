@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -10,9 +11,14 @@ use DmLab\CustomerSso\Controller\Sso\Callback;
 use DmLab\CustomerSso\Model\CustomerProvisioner;
 use DmLab\CustomerSso\Model\CustomerSessionCreator;
 use DmLab\CustomerSso\Model\GroupAssigner;
+use DmLab\CustomerSso\Model\IdentityLinker;
 use DmLab\CustomerSso\Model\Oidc\CallbackHandler;
+use DmLab\CustomerSso\Model\Session\SsoIntentStorage;
+use DmLab\CustomerSso\Model\SsoIntent;
+use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
 use DmLab\SsoCore\Model\Data\Identity;
 use Magento\Customer\Api\Data\CustomerInterface;
+use Magento\Customer\Model\Session;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\Redirect;
 use Magento\Framework\Controller\Result\RedirectFactory;
@@ -50,6 +56,18 @@ class CallbackTest extends TestCase
     /** @var CustomerSessionCreator&MockObject */
     private $sessionCreator;
 
+    /** @var IdentityLinker&MockObject */
+    private $identityLinker;
+
+    /** @var Session&Stub */
+    private $customerSession;
+
+    /** @var AuthorizationStateStorageInterface&Stub */
+    private $stateStorage;
+
+    /** @var RedirectFactory&Stub */
+    private $redirectFactory;
+
     /** @var Callback */
     private Callback $controller;
 
@@ -57,8 +75,8 @@ class CallbackTest extends TestCase
     {
         $this->redirect = $this->createMock(Redirect::class);
 
-        $redirectFactory = $this->createStub(RedirectFactory::class);
-        $redirectFactory->method('create')->willReturn($this->redirect);
+        $this->redirectFactory = $this->createStub(RedirectFactory::class);
+        $this->redirectFactory->method('create')->willReturn($this->redirect);
 
         $this->request = $this->createStub(RequestInterface::class);
         $this->messageManager = $this->createMock(ManagerInterface::class);
@@ -67,21 +85,276 @@ class CallbackTest extends TestCase
         $this->provisioner = $this->createMock(CustomerProvisioner::class);
         $this->groupAssigner = $this->createMock(GroupAssigner::class);
         $this->sessionCreator = $this->createMock(CustomerSessionCreator::class);
+        $this->identityLinker = $this->createMock(IdentityLinker::class);
+        $this->customerSession = $this->createStub(Session::class);
+        $this->stateStorage = $this->createStub(AuthorizationStateStorageInterface::class);
 
-        $escaper = $this->createStub(Escaper::class);
-        $escaper->method('escapeHtml')->willReturnArgument(0);
+        $this->controller = $this->buildController(
+            $this->createStub(SsoIntentStorage::class),
+            $this->passThroughEscaper()
+        );
+    }
 
-        $this->controller = new Callback(
+    private function buildController(SsoIntentStorage $intentStorage, Escaper $escaper): Callback
+    {
+        return new Callback(
             $this->request,
             $this->handler,
+            $intentStorage,
+            $this->stateStorage,
             $this->provisioner,
             $this->groupAssigner,
             $this->sessionCreator,
-            $redirectFactory,
+            $this->identityLinker,
+            $this->customerSession,
+            $this->redirectFactory,
             $this->messageManager,
             $escaper,
             $this->logger
         );
+    }
+
+    private function passThroughEscaper(): Escaper
+    {
+        $escaper = $this->createStub(Escaper::class);
+        $escaper->method('escapeHtml')->willReturnArgument(0);
+
+        return $escaper;
+    }
+
+    /**
+     * Expect a successful login of a provisioned customer (the outcome under test is the landing URL).
+     */
+    private function expectSuccessfulLogin(): void
+    {
+        $identity = new Identity('user-1', 'user@example.com', 'User One', []);
+        $customer = $this->createStub(CustomerInterface::class);
+
+        $this->handler->expects(self::once())->method('handle')->with('the-code', 'the-state')->willReturn($identity);
+        $this->provisioner->expects(self::once())->method('provision')->willReturn($customer);
+        $this->groupAssigner->expects(self::once())->method('assign')->willReturn($customer);
+        $this->sessionCreator->expects(self::once())->method('create')->with($customer);
+        $this->identityLinker->expects(self::never())->method('link');
+        $this->messageManager->expects(self::never())->method('addErrorMessage');
+        $this->logger->expects(self::never())->method('critical');
+    }
+
+    public function testRedirectsToIntentReturnUrlOnSuccess(): void
+    {
+        $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
+        $this->expectSuccessfulLogin();
+
+        $intentStorage = $this->createMock(SsoIntentStorage::class);
+        $intentStorage->expects(self::once())
+            ->method('consume')
+            ->with('the-state')
+            ->willReturn(new SsoIntent(SsoIntent::MODE_LOGIN, null, 'https://magento.loc/checkout/'));
+
+        $this->redirect->expects(self::once())
+            ->method('setUrl')
+            ->with('https://magento.loc/checkout/')
+            ->willReturnSelf();
+        $this->redirect->expects(self::never())->method('setPath');
+
+        $controller = $this->buildController($intentStorage, $this->passThroughEscaper());
+        self::assertSame($this->redirect, $controller->execute());
+    }
+
+    public function testMissingIntentFallsBackToLoginIntoAccount(): void
+    {
+        $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
+        $this->expectSuccessfulLogin();
+
+        $intentStorage = $this->createMock(SsoIntentStorage::class);
+        $intentStorage->expects(self::once())->method('consume')->with('the-state')->willReturn(null);
+
+        $this->redirect->expects(self::never())->method('setUrl');
+        $this->redirect->expects(self::once())->method('setPath')->with('customer/account');
+
+        $controller = $this->buildController($intentStorage, $this->passThroughEscaper());
+        self::assertSame($this->redirect, $controller->execute());
+    }
+
+    /**
+     * Run the callback with a link intent bound to customer 42, the session as given.
+     */
+    private function runLinkCallback(
+        Identity $identity,
+        bool $loggedIn,
+        ?int $sessionCustomerId,
+        ?Escaper $escaper = null
+    ): Redirect {
+        $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
+        $this->handler->expects(self::once())->method('handle')->with('the-code', 'the-state')->willReturn($identity);
+        $this->customerSession->method('isLoggedIn')->willReturn($loggedIn);
+        $this->customerSession->method('getCustomerId')->willReturn($sessionCustomerId);
+
+        $intentStorage = $this->createStub(SsoIntentStorage::class);
+        $intentStorage->method('consume')->willReturn(new SsoIntent(SsoIntent::MODE_LINK, 42));
+
+        // Link mode never provisions, reassigns the group, or creates a session.
+        $this->expectNoProvisioning();
+
+        return $this->buildController($intentStorage, $escaper ?? $this->passThroughEscaper())->execute();
+    }
+
+    private function expectAccountSsoRedirect(): void
+    {
+        $this->redirect->expects(self::once())->method('setPath')->with('customersso/account');
+        $this->redirect->expects(self::never())->method('setUrl');
+    }
+
+    public function testLinkIntentLinksIdentityToSessionCustomer(): void
+    {
+        $identity = new Identity('user-1', 'user@example.com', 'User One', []);
+        $this->identityLinker->expects(self::once())->method('link')->with(42, $identity);
+        $this->messageManager->expects(self::once())
+            ->method('addSuccessMessage')
+            ->with('Single sign-on has been linked to your account.');
+        $this->messageManager->expects(self::never())->method('addErrorMessage');
+        $this->logger->expects(self::never())->method('critical');
+        $this->expectAccountSsoRedirect();
+
+        self::assertSame($this->redirect, $this->runLinkCallback($identity, true, 42));
+    }
+
+    public function testLinkIntentRefusedForAnonymousSession(): void
+    {
+        $this->identityLinker->expects(self::never())->method('link');
+        $this->messageManager->expects(self::once())
+            ->method('addErrorMessage')
+            ->with('Your session changed. Please sign in and try linking again.');
+        $this->logger->expects(self::never())->method('critical');
+        $this->expectAccountSsoRedirect();
+
+        self::assertSame($this->redirect, $this->runLinkCallback(new Identity('user-1'), false, null));
+    }
+
+    public function testLinkIntentRefusedWhenSessionCustomerDiffers(): void
+    {
+        $this->identityLinker->expects(self::never())->method('link');
+        $this->messageManager->expects(self::never())->method('addSuccessMessage');
+        $this->messageManager->expects(self::once())
+            ->method('addErrorMessage')
+            ->with('Your session changed. Please sign in and try linking again.');
+        $this->logger->expects(self::never())->method('critical');
+        $this->expectAccountSsoRedirect();
+
+        self::assertSame($this->redirect, $this->runLinkCallback(new Identity('user-1'), true, 7));
+    }
+
+    public function testLinkerRefusalIsEscapedAndReturnsToAccountSso(): void
+    {
+        $payload = '<b>already linked</b>';
+        $escaped = '&lt;b&gt;already linked&lt;/b&gt;';
+        $escaper = $this->createMock(Escaper::class);
+        $escaper->expects(self::once())->method('escapeHtml')->with($payload)->willReturn($escaped);
+
+        $this->identityLinker->expects(self::once())
+            ->method('link')
+            ->willThrowException(new LocalizedException(__($payload)));
+        $this->messageManager->expects(self::never())->method('addSuccessMessage');
+        $this->messageManager->expects(self::once())->method('addErrorMessage')->with($escaped);
+        $this->logger->expects(self::never())->method('critical');
+        $this->expectAccountSsoRedirect();
+
+        self::assertSame($this->redirect, $this->runLinkCallback(new Identity('user-1'), true, 42, $escaper));
+    }
+
+    public function testUnexpectedLinkerErrorIsLoggedAndReturnsToAccountSso(): void
+    {
+        $error = new \RuntimeException('db down');
+        $this->identityLinker->expects(self::once())->method('link')->willThrowException($error);
+        $this->logger->expects(self::once())->method('critical')->with($error);
+        $this->messageManager->expects(self::once())
+            ->method('addErrorMessage')
+            ->with('Could not link single sign-on. Please try again or contact the store owner.');
+        $this->expectAccountSsoRedirect();
+
+        self::assertSame($this->redirect, $this->runLinkCallback(new Identity('user-1'), true, 42));
+    }
+
+    public function testUnknownStateOnFailureFallsBackToLogin(): void
+    {
+        $this->withParams(['code' => 'the-code', 'state' => 'forged']);
+        $this->expectLoginRedirect();
+        $this->expectNoProvisioning();
+
+        $this->handler->expects(self::once())->method('handle')->willThrowException(
+            new LocalizedException(__('The SSO sign-in session is invalid or has expired. Please try again.'))
+        );
+        $intentStorage = $this->createMock(SsoIntentStorage::class);
+        $intentStorage->expects(self::once())->method('consume')->with('forged')->willReturn(null);
+        $this->messageManager->expects(self::once())->method('addErrorMessage');
+        $this->logger->expects(self::never())->method('critical');
+
+        $controller = $this->buildController($intentStorage, $this->passThroughEscaper());
+        self::assertSame($this->redirect, $controller->execute());
+    }
+
+    public function testIdpErrorDuringLinkingDropsIntentAndReturnsToAccountSso(): void
+    {
+        $this->withParams(['error' => 'access_denied', 'state' => 'the-state']);
+        $this->expectNoProvisioning();
+        $this->handler->expects(self::never())->method('handle');
+        $this->identityLinker->expects(self::never())->method('link');
+        $this->messageManager->expects(self::once())
+            ->method('addErrorMessage')
+            ->with('The identity provider rejected the sign-in: access_denied');
+        $this->logger->expects(self::never())->method('critical');
+        $this->expectAccountSsoRedirect();
+
+        $intentStorage = $this->createMock(SsoIntentStorage::class);
+        $intentStorage->expects(self::once())
+            ->method('consume')
+            ->with('the-state')
+            ->willReturn(new SsoIntent(SsoIntent::MODE_LINK, 42));
+        $this->stateStorage = $this->createMock(AuthorizationStateStorageInterface::class);
+        $this->stateStorage->expects(self::once())->method('consume')->with('the-state');
+
+        $controller = $this->buildController($intentStorage, $this->passThroughEscaper());
+        self::assertSame($this->redirect, $controller->execute());
+    }
+
+    public function testHandlerFailureDuringLinkingDropsIntentAndReturnsToAccountSso(): void
+    {
+        $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
+        $this->expectNoProvisioning();
+        $error = new \RuntimeException('token endpoint down');
+        $this->handler->expects(self::once())->method('handle')->willThrowException($error);
+        $this->identityLinker->expects(self::never())->method('link');
+        $this->logger->expects(self::once())->method('critical')->with($error);
+        $this->messageManager->expects(self::once())->method('addErrorMessage');
+        $this->expectAccountSsoRedirect();
+
+        $intentStorage = $this->createMock(SsoIntentStorage::class);
+        $intentStorage->expects(self::once())
+            ->method('consume')
+            ->with('the-state')
+            ->willReturn(new SsoIntent(SsoIntent::MODE_LINK, 42));
+
+        $controller = $this->buildController($intentStorage, $this->passThroughEscaper());
+        self::assertSame($this->redirect, $controller->execute());
+    }
+
+    public function testIncompleteResponseWithoutStateSkipsIntentLookup(): void
+    {
+        $this->withParams(['code' => 'the-code']);
+        $this->expectLoginRedirect();
+        $this->expectNoProvisioning();
+
+        $intentStorage = $this->createMock(SsoIntentStorage::class);
+        $intentStorage->expects(self::never())->method('consume');
+        $this->stateStorage = $this->createMock(AuthorizationStateStorageInterface::class);
+        $this->stateStorage->expects(self::never())->method('consume');
+        $this->handler->expects(self::never())->method('handle');
+        $this->logger->expects(self::never())->method('critical');
+        $this->messageManager->expects(self::once())
+            ->method('addErrorMessage')
+            ->with('The SSO sign-in response was incomplete. Please try again.');
+
+        $controller = $this->buildController($intentStorage, $this->passThroughEscaper());
+        self::assertSame($this->redirect, $controller->execute());
     }
 
     /**
@@ -100,6 +373,7 @@ class CallbackTest extends TestCase
     private function expectLoginRedirect(): void
     {
         $this->redirect->expects(self::once())->method('setPath')->with('customer/account/login');
+        $this->identityLinker->expects(self::never())->method('link');
     }
 
     /**
@@ -135,6 +409,7 @@ class CallbackTest extends TestCase
             ->with($customer, $identity)
             ->willReturn($groupedCustomer);
         $this->sessionCreator->expects(self::once())->method('create')->with($groupedCustomer);
+        $this->identityLinker->expects(self::never())->method('link');
 
         $this->redirect->expects(self::once())->method('setPath')->with('customer/account');
         $this->messageManager->expects(self::never())->method('addErrorMessage');
@@ -181,20 +456,7 @@ class CallbackTest extends TestCase
             ->with($payload)
             ->willReturn($escaped);
 
-        $redirectFactory = $this->createStub(RedirectFactory::class);
-        $redirectFactory->method('create')->willReturn($this->redirect);
-
-        $controller = new Callback(
-            $this->request,
-            $this->handler,
-            $this->provisioner,
-            $this->groupAssigner,
-            $this->sessionCreator,
-            $redirectFactory,
-            $this->messageManager,
-            $escaper,
-            $this->logger
-        );
+        $controller = $this->buildController($this->createStub(SsoIntentStorage::class), $escaper);
 
         $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
         $this->expectLoginRedirect();
@@ -245,20 +507,7 @@ class CallbackTest extends TestCase
             ->with($payload)
             ->willReturn($escaped);
 
-        $redirectFactory = $this->createStub(RedirectFactory::class);
-        $redirectFactory->method('create')->willReturn($this->redirect);
-
-        $controller = new Callback(
-            $this->request,
-            $this->handler,
-            $this->provisioner,
-            $this->groupAssigner,
-            $this->sessionCreator,
-            $redirectFactory,
-            $this->messageManager,
-            $escaper,
-            $this->logger
-        );
+        $controller = $this->buildController($this->createStub(SsoIntentStorage::class), $escaper);
 
         $this->withParams(['error' => 'invalid_request', 'error_description' => $payload]);
         $this->expectLoginRedirect();

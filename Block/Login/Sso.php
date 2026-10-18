@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -52,13 +53,13 @@ class Sso extends Template
     }
 
     /**
-     * Active preset's login-button label, or empty when no provider is active.
+     * Active preset's login-button label (translatable), or empty when no provider is active.
      */
     public function getButtonLabel(): string
     {
         $preset = $this->activeProviderResolver->getActive();
 
-        return $preset === null ? '' : $preset->getButtonLabel();
+        return $preset === null ? '' : (string)__($preset->getButtonLabel());
     }
 
     /**

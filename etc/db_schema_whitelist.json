@@ -3,7 +3,8 @@
         "column": {
             "customer_id": true,
             "provider_code": true,
-            "subject_id": true
+            "subject_id": true,
+            "created_at": true
         },
         "constraint": {
             "PRIMARY": true,

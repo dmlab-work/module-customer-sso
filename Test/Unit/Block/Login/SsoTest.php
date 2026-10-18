@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -10,6 +11,8 @@ use DmLab\CustomerSso\Block\Login\Sso;
 use DmLab\CustomerSso\Model\ActiveProviderResolver;
 use DmLab\CustomerSso\Model\Config;
 use DmLab\SsoCore\Api\ProviderPresetInterface;
+use Magento\Framework\Phrase;
+use Magento\Framework\Phrase\RendererInterface;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Framework\UrlInterface;
 use Magento\Framework\View\Element\Template\Context;
@@ -17,6 +20,19 @@ use PHPUnit\Framework\TestCase;
 
 class SsoTest extends TestCase
 {
+    /** @var RendererInterface Global phrase renderer restored after each test. */
+    private RendererInterface $previousRenderer;
+
+    protected function setUp(): void
+    {
+        $this->previousRenderer = Phrase::getRenderer();
+    }
+
+    protected function tearDown(): void
+    {
+        Phrase::setRenderer($this->previousRenderer);
+    }
+
     private function preset(string $buttonLabel, ?string $iconUrl): ProviderPresetInterface
     {
         $preset = $this->createStub(ProviderPresetInterface::class);
@@ -52,6 +68,19 @@ class SsoTest extends TestCase
         self::assertTrue($block->isAvailable());
         self::assertSame('Sign in with Okta', $block->getButtonLabel());
         self::assertSame('https://cdn/okta.svg', $block->getButtonIconUrl());
+    }
+
+    public function testButtonLabelIsTranslated(): void
+    {
+        $renderer = $this->createStub(RendererInterface::class);
+        $renderer->method('render')->willReturnCallback(
+            static fn (array $source): string => $source[0] === 'Sign in with Okta' ? 'Mit Okta anmelden' : $source[0]
+        );
+        Phrase::setRenderer($renderer);
+
+        $block = $this->block(true, $this->preset('Sign in with Okta', null));
+
+        self::assertSame('Mit Okta anmelden', $block->getButtonLabel());
     }
 
     public function testHiddenWhenModuleDisabled(): void

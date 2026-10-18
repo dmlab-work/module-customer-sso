@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -14,9 +15,11 @@ use DmLab\CustomerSso\Model\Config;
 use DmLab\CustomerSso\Model\CustomerProvisioner;
 use DmLab\CustomerSso\Model\CustomerSessionCreator;
 use DmLab\CustomerSso\Model\GroupAssigner;
+use DmLab\CustomerSso\Model\IdentityLinker;
 use DmLab\CustomerSso\Model\Oidc\AuthorizationStarter;
 use DmLab\CustomerSso\Model\Oidc\CallbackHandler;
 use DmLab\CustomerSso\Model\PresetRegistry;
+use DmLab\CustomerSso\Model\Session\SsoIntentStorage;
 use DmLab\CustomerSso\Model\SubjectLink;
 use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
 use DmLab\SsoCore\Api\Data\AuthorizationStateInterface;
@@ -37,6 +40,7 @@ use Magento\Customer\Api\Data\CustomerInterfaceFactory;
 use Magento\Customer\Api\Data\GroupInterface;
 use Magento\Customer\Api\GroupManagementInterface;
 use Magento\Customer\Api\GroupRepositoryInterface;
+use Magento\Customer\Model\Config\Share;
 use Magento\Customer\Model\Session;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\RequestInterface;
@@ -47,7 +51,15 @@ use Magento\Framework\Escaper;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Math\Random;
 use Magento\Framework\Message\ManagerInterface;
+use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
+use Magento\Framework\Stdlib\CookieManagerInterface;
+use Magento\Framework\TestFramework\Unit\Helper\MockCreationTrait;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
+use Magento\Framework\Url\DecoderInterface;
+use Magento\Framework\Url\HostChecker;
+use Magento\Framework\Url\ScopeInterface;
+use Magento\Framework\Url\ScopeResolverInterface;
+use Magento\Framework\Validator\Url as UrlValidator;
 use Magento\Framework\UrlInterface;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
@@ -74,6 +86,8 @@ use Psr\Log\LoggerInterface;
 #[AllowMockObjectsWithoutExpectations]
 class EndToEndTest extends TestCase
 {
+    use MockCreationTrait;
+
     /** Subject the stub IdP releases; the stable re-login key. */
     private const SUBJECT = 'idp-subject-1';
 
@@ -116,6 +130,12 @@ class EndToEndTest extends TestCase
     /** @var Session&MockObject */
     private $session;
 
+    /** @var array<string,mixed> in-memory customer-session data backing the intent storage. */
+    private array $sessionData = [];
+
+    /** @var array<string,string> start request params. */
+    private array $startParams = [];
+
     /** @var Redirect&MockObject */
     private $startRedirect;
 
@@ -124,6 +144,12 @@ class EndToEndTest extends TestCase
 
     /** @var RequestInterface&MockObject */
     private $callbackRequest;
+
+    /** @var ManagerInterface&MockObject callback flash messages. */
+    private $callbackMessages;
+
+    /** @var CustomerRepositoryInterface&MockObject */
+    private $customerRepository;
 
     /** @var CustomerInterface&MockObject the JIT-created customer. */
     private $newCustomer;
@@ -139,12 +165,13 @@ class EndToEndTest extends TestCase
             Config::XML_PATH_CLIENT_ID => 'client-123',
             Config::XML_PATH_CLIENT_SECRET => 'enc-secret',
             Config::XML_PATH_ALLOW_PASSWORD_LOGIN => '1',
-            Config::XML_PATH_AUTO_LINK_POLICY => Config::AUTO_LINK_AUTO,
+            Config::XML_PATH_AUTO_LINK_POLICY => Config::AUTO_LINK_REQUIRE_VERIFICATION,
             Config::XML_PATH_GROUP_MAP => 'vip=' . self::VIP_GROUP_ID,
         ];
         $this->claims = [
             'sub' => self::SUBJECT,
             'email' => self::EMAIL,
+            'email_verified' => true,
             'name' => 'Jane Shopper',
             'groups' => ['vip'],
         ];
@@ -188,19 +215,22 @@ class EndToEndTest extends TestCase
 
         $this->stateStorage = $this->inMemoryStateStorage();
 
+        $intentStorage = new SsoIntentStorage($this->dataSession());
+
         $starter = new AuthorizationStarter(
             $config,
             $resolver,
             $discoveryClient,
             new AuthorizationRequestFactory($random),
             $this->stateStorage,
+            $intentStorage,
             $url
         );
 
         $tokenClient = $this->createStub(TokenClient::class);
         $tokenClient->method('exchangeCode')->willReturn(new TokenResponse('id-token-jwt'));
         $jwksClient = $this->createStub(JwksClient::class);
-        $jwksClient->method('getKeySet')->willReturn(new JWKSet([]));
+        $jwksClient->method('getKeySetForToken')->willReturn(new JWKSet([]));
         $idTokenValidator = $this->createStub(IdTokenValidator::class);
         $idTokenValidator->method('validate')->willReturnCallback(fn(): array => $this->claims);
 
@@ -217,6 +247,7 @@ class EndToEndTest extends TestCase
         );
 
         [$storeManager, $customerRepository] = [$this->storeManager(), $this->customerRepository()];
+        $this->customerRepository = $customerRepository;
         $subjectLink = $this->subjectLink();
 
         $this->newCustomer = $this->customer(self::NEW_CUSTOMER_ID);
@@ -229,7 +260,8 @@ class EndToEndTest extends TestCase
             $storeManager,
             $subjectLink,
             $config,
-            $resolver
+            $resolver,
+            $this->createStub(Share::class)
         );
 
         $groupAssigner = new GroupAssigner(
@@ -242,11 +274,29 @@ class EndToEndTest extends TestCase
         );
 
         $this->session = $this->createMock(Session::class);
-        $sessionCreator = new CustomerSessionCreator($this->session);
+        $sessionCreator = new CustomerSessionCreator(
+            $this->session,
+            $this->createStub(CookieManagerInterface::class),
+            $this->createStub(CookieMetadataFactory::class)
+        );
 
         $this->startRedirect = $this->createMock(Redirect::class);
+        $startRequest = $this->createStub(RequestInterface::class);
+        $startRequest->method('getParam')->willReturnCallback(fn(string $name) => $this->startParams[$name] ?? null);
+        $urlDecoder = $this->createStub(DecoderInterface::class);
+        $urlDecoder->method('decode')
+            ->willReturnCallback(static fn(string $url): string => (string)base64_decode($url));
+        $storeScope = $this->createStub(ScopeInterface::class);
+        $storeScope->method('getBaseUrl')->willReturn('https://magento.loc/');
+        $scopeResolver = $this->createStub(ScopeResolverInterface::class);
+        $scopeResolver->method('getScopes')->willReturn([$storeScope]);
+
         $this->startController = new Start(
             $starter,
+            $startRequest,
+            $urlDecoder,
+            new UrlValidator(),
+            new HostChecker($scopeResolver),
             $this->redirectFactory($this->startRedirect),
             $this->createMock(ManagerInterface::class),
             $this->createMock(LoggerInterface::class)
@@ -256,14 +306,19 @@ class EndToEndTest extends TestCase
         $this->callbackRequest = $this->createMock(RequestInterface::class);
         $escaper = $this->createStub(Escaper::class);
         $escaper->method('escapeHtml')->willReturnArgument(0);
+        $this->callbackMessages = $this->createMock(ManagerInterface::class);
         $this->callbackController = new Callback(
             $this->callbackRequest,
             $callbackHandler,
+            $intentStorage,
+            $this->stateStorage,
             $provisioner,
             $groupAssigner,
             $sessionCreator,
+            new IdentityLinker($subjectLink, $resolver, $storeManager),
+            $this->session,
             $this->redirectFactory($this->callbackRedirect),
-            $this->createMock(ManagerInterface::class),
+            $this->callbackMessages,
             $escaper,
             $this->createMock(LoggerInterface::class)
         );
@@ -279,7 +334,7 @@ class EndToEndTest extends TestCase
         // Start: the browser is redirected to the IdP and the one-time state persists.
         $state = $this->runStart();
 
-        // No prior link and no email match → JIT create, then map `vip` → group 5.
+        // No prior link and no email match, IdP-verified email → JIT create, then map `vip` → group 5.
         $this->newCustomer->expects(self::once())->method('setEmail')->with(self::EMAIL);
         $this->newCustomer->expects(self::once())->method('setGroupId')->with((int)self::VIP_GROUP_ID);
         $this->session->expects(self::once())->method('setCustomerDataAsLoggedIn')->with($this->newCustomer);
@@ -290,14 +345,92 @@ class EndToEndTest extends TestCase
         self::assertSame(self::NEW_CUSTOMER_ID, $this->subjectLinks['stub|' . self::SUBJECT] ?? null);
     }
 
-    public function testExistingCustomerLinkedByEmailUnderAutoLinkPolicy(): void
+    public function testOwnOriginRefererIsTheLandingUrlAfterLogin(): void
+    {
+        $this->startParams['referer'] = base64_encode('https://magento.loc/checkout/');
+        $state = $this->runStart();
+
+        $this->session->expects(self::once())->method('setCustomerDataAsLoggedIn')->with($this->newCustomer);
+        $this->callbackRequest->method('getParam')->willReturnCallback(
+            static fn(string $name) => ['code' => 'auth-code', 'state' => $state][$name] ?? null
+        );
+        $this->callbackRedirect->expects(self::never())->method('setPath');
+        $this->callbackRedirect->expects(self::once())
+            ->method('setUrl')
+            ->with('https://magento.loc/checkout/')
+            ->willReturnSelf();
+
+        self::assertSame($this->callbackRedirect, $this->callbackController->execute());
+        // The intent is single use.
+        self::assertSame([], $this->sessionData['dmlab_customer_sso_intents'] ?? null);
+    }
+
+    public function testCancelledLinkCannotBeRetriedAsLogin(): void
+    {
+        $state = $this->runStart();
+        $this->sessionData['dmlab_customer_sso_intents'][$state] = [
+            'mode' => 'link',
+            'customer_id' => 42,
+            'return_url' => null,
+        ];
+
+        $params = ['error' => 'access_denied', 'state' => $state];
+        $this->callbackRequest->method('getParam')
+            ->willReturnCallback(static function (string $name) use (&$params) {
+                return $params[$name] ?? null;
+            });
+        $paths = [];
+        $this->callbackRedirect->method('setPath')->willReturnCallback(function (string $path) use (&$paths) {
+            $paths[] = $path;
+            return $this->callbackRedirect;
+        });
+        $this->session->expects(self::never())->method('setCustomerDataAsLoggedIn');
+        $this->customerRepository->expects(self::never())->method('save');
+
+        // Shopper cancels linking at the IdP, then revisits the same authorization URL and approves.
+        $this->callbackController->execute();
+        $params = ['code' => 'auth-code', 'state' => $state];
+        $this->callbackController->execute();
+
+        self::assertSame(['customersso/account', 'customer/account/login'], $paths);
+        self::assertSame([], $this->readSavedStates());
+    }
+
+    public function testForeignRefererIsIgnored(): void
+    {
+        $this->startParams['referer'] = base64_encode('https://evil.example/');
+        $state = $this->runStart();
+
+        $this->callbackRedirect->expects(self::never())->method('setUrl');
+        $this->runCallback('auth-code', $state, 'customer/account');
+    }
+
+    public function testUnverifiedEmailRefusesJitAndPersistsNothing(): void
+    {
+        $this->claims['email_verified'] = false;
+
+        $state = $this->runStart();
+
+        $this->newCustomer->expects(self::never())->method('setEmail');
+        $this->customerRepository->expects(self::never())->method('save');
+        $this->session->expects(self::never())->method('setCustomerDataAsLoggedIn');
+        $this->callbackMessages->expects(self::once())->method('addErrorMessage')->with(
+            self::stringStartsWith('Your identity provider has not verified your email address')
+        );
+
+        $this->runCallback('auth-code', $state, 'customer/account/login');
+
+        self::assertSame([], $this->subjectLinks);
+    }
+
+    public function testExistingCustomerLinkedByVerifiedEmail(): void
     {
         $existing = $this->customer(self::EXISTING_CUSTOMER_ID);
         $this->customersByEmail[self::EMAIL] = $existing;
 
         $state = $this->runStart();
 
-        // Adopt the email match (auto-link), keep it on its group mapping, log in — no JIT.
+        // Adopt the email match (IdP-verified email), apply its group mapping, log in — no JIT.
         $this->newCustomer->expects(self::never())->method('setEmail');
         $existing->expects(self::once())->method('setGroupId')->with((int)self::VIP_GROUP_ID);
         $this->session->expects(self::once())->method('setCustomerDataAsLoggedIn')->with($existing);
@@ -307,9 +440,9 @@ class EndToEndTest extends TestCase
         self::assertSame(self::EXISTING_CUSTOMER_ID, $this->subjectLinks['stub|' . self::SUBJECT] ?? null);
     }
 
-    public function testEmailMatchNotLinkedWhenPolicyRequiresVerification(): void
+    public function testEmailMatchNotLinkedWhenEmailUnverified(): void
     {
-        $this->configValues[Config::XML_PATH_AUTO_LINK_POLICY] = Config::AUTO_LINK_REQUIRE_VERIFICATION;
+        $this->claims['email_verified'] = false;
         $this->customersByEmail[self::EMAIL] = $this->customer(self::EXISTING_CUSTOMER_ID);
 
         $state = $this->runStart();
@@ -356,6 +489,20 @@ class EndToEndTest extends TestCase
         $this->callbackRedirect->expects(self::once())->method('setPath')->with($expectedPath);
 
         self::assertSame($this->callbackRedirect, $this->callbackController->execute());
+    }
+
+    /**
+     * Customer session backed by {@see self::$sessionData}; `setData` is magic, so a partial mock.
+     */
+    private function dataSession(): Session
+    {
+        $session = $this->createPartialMockWithReflection(Session::class, ['getData', 'setData']);
+        $session->method('getData')->willReturnCallback(fn($key) => $this->sessionData[$key] ?? null);
+        $session->method('setData')->willReturnCallback(function ($key, $value): void {
+            $this->sessionData[$key] = $value;
+        });
+
+        return $session;
     }
 
     /**
@@ -420,15 +567,16 @@ class EndToEndTest extends TestCase
             ->willReturnCallback(
                 fn(string $provider, string $subject): ?int => $this->subjectLinks[$provider . '|' . $subject] ?? null
             );
-        $link->method('getIdentityByCustomerId')->willReturnCallback(
-            function (int $customerId): ?array {
-                $key = array_search($customerId, $this->subjectLinks, true);
-                if ($key === false) {
-                    return null;
+        $link->method('getSubjectForProvider')->willReturnCallback(
+            function (int $customerId, string $provider): ?string {
+                foreach ($this->subjectLinks as $key => $linkedId) {
+                    [$linkedProvider, $subject] = explode('|', (string)$key, 2);
+                    if ($linkedId === $customerId && $linkedProvider === $provider) {
+                        return $subject;
+                    }
                 }
-                [$provider, $subject] = explode('|', (string)$key, 2);
 
-                return ['provider_code' => $provider, 'subject_id' => $subject];
+                return null;
             }
         );
         $link->method('link')->willReturnCallback(

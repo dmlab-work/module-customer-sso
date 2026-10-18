@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -13,9 +14,8 @@ use Magento\Framework\Data\OptionSourceInterface;
  * Dropdown source for the email account-linking policy.
  *
  * Governs what happens when an SSO identity's email matches an existing
- * customer that isn't yet linked by `sub`: silently take it over (auto-link)
- * or refuse until the email is proven (require verification). The safe default
- * is verification — see {@see Config::AUTO_LINK_REQUIRE_VERIFICATION}.
+ * customer that isn't yet linked by `sub`: adopt it when the IdP verified the
+ * email (default), or never (link from My Account only).
  */
 class AutoLinkPolicy implements OptionSourceInterface
 {
@@ -29,11 +29,11 @@ class AutoLinkPolicy implements OptionSourceInterface
         return [
             [
                 'value' => Config::AUTO_LINK_REQUIRE_VERIFICATION,
-                'label' => __('Require verification'),
+                'label' => __('Link when the IdP verified the email'),
             ],
             [
-                'value' => Config::AUTO_LINK_AUTO,
-                'label' => __('Auto-link by email'),
+                'value' => Config::AUTO_LINK_DISABLED,
+                'label' => __('Never (link from My Account only)'),
             ],
         ];
     }

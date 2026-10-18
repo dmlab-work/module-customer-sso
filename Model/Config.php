@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -33,17 +34,17 @@ class Config
     /** Whether the native email/password login form stays visible alongside SSO. */
     public const XML_PATH_ALLOW_PASSWORD_LOGIN = 'dmlab_customer_sso/general/allow_password_login';
 
-    /** Email account-linking policy (auto-link vs require verification). */
+    /** Email account-linking policy (adopt on IdP-verified email vs never). */
     public const XML_PATH_AUTO_LINK_POLICY = 'dmlab_customer_sso/general/auto_link_policy';
 
     /** IdP-group → customer-group rules, one `group=customer_group_id` per line. */
     public const XML_PATH_GROUP_MAP = 'dmlab_customer_sso/general/group_customer_group_map';
 
-    /** Take over a matching customer by email without further proof. */
-    public const AUTO_LINK_AUTO = 'auto';
-
-    /** Refuse to link by email until the email is proven (safe default). */
+    /** Adopt a matching customer by email only when the IdP verified the email (default). */
     public const AUTO_LINK_REQUIRE_VERIFICATION = 'require_verification';
+
+    /** Never adopt by email; linking happens from My Account only. */
+    public const AUTO_LINK_DISABLED = 'disabled';
 
     /**
      * @param ScopeConfigInterface $scopeConfig
@@ -115,8 +116,8 @@ class Config
     }
 
     /**
-     * Configured email-linking policy; falls back to the safe
-     * {@see self::AUTO_LINK_REQUIRE_VERIFICATION} when unset or unrecognized.
+     * Configured email-linking policy; anything other than {@see self::AUTO_LINK_DISABLED}
+     * (unset, legacy `auto`, unknown) resolves to {@see self::AUTO_LINK_REQUIRE_VERIFICATION}.
      *
      * @param int|string|null $storeId
      */
@@ -124,17 +125,17 @@ class Config
     {
         $value = $this->readNonEmptyString(self::XML_PATH_AUTO_LINK_POLICY, $storeId);
 
-        return $value === self::AUTO_LINK_AUTO ? self::AUTO_LINK_AUTO : self::AUTO_LINK_REQUIRE_VERIFICATION;
+        return $value === self::AUTO_LINK_DISABLED ? self::AUTO_LINK_DISABLED : self::AUTO_LINK_REQUIRE_VERIFICATION;
     }
 
     /**
-     * Whether a matching customer may be linked by email without verification.
+     * Whether a matching customer may be adopted by an IdP-verified email.
      *
      * @param int|string|null $storeId
      */
-    public function isAutoLinkByEmailAllowed($storeId = null): bool
+    public function isEmailLinkingEnabled($storeId = null): bool
     {
-        return $this->getAutoLinkPolicy($storeId) === self::AUTO_LINK_AUTO;
+        return $this->getAutoLinkPolicy($storeId) !== self::AUTO_LINK_DISABLED;
     }
 
     /**

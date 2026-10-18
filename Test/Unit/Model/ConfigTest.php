@@ -1,6 +1,7 @@
 <?php
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 declare(strict_types=1);
 
@@ -91,26 +92,23 @@ class ConfigTest extends TestCase
         self::assertNull($this->config([Config::XML_PATH_CLIENT_SECRET => 'stale'])->getClientSecret());
     }
 
-    public function testGetAutoLinkPolicyReturnsAutoOnlyWhenExplicitlyAuto(): void
+    public function testGetAutoLinkPolicyReturnsDisabledOnlyWhenExplicitlyDisabled(): void
     {
-        self::assertSame(
-            Config::AUTO_LINK_AUTO,
-            $this->config([Config::XML_PATH_AUTO_LINK_POLICY => 'auto'])->getAutoLinkPolicy()
-        );
-        self::assertTrue($this->config([Config::XML_PATH_AUTO_LINK_POLICY => 'auto'])->isAutoLinkByEmailAllowed());
+        $config = $this->config([Config::XML_PATH_AUTO_LINK_POLICY => 'disabled']);
+
+        self::assertSame(Config::AUTO_LINK_DISABLED, $config->getAutoLinkPolicy());
+        self::assertFalse($config->isEmailLinkingEnabled());
     }
 
     public function testGetAutoLinkPolicyFallsBackToRequireVerification(): void
     {
-        self::assertSame(
-            Config::AUTO_LINK_REQUIRE_VERIFICATION,
-            $this->config([])->getAutoLinkPolicy()
-        );
-        self::assertSame(
-            Config::AUTO_LINK_REQUIRE_VERIFICATION,
-            $this->config([Config::XML_PATH_AUTO_LINK_POLICY => 'nonsense'])->getAutoLinkPolicy()
-        );
-        self::assertFalse($this->config([])->isAutoLinkByEmailAllowed());
+        // Unset, legacy `auto` and unknown values all resolve to the verified-email policy.
+        $cases = [[], [Config::XML_PATH_AUTO_LINK_POLICY => 'auto'], [Config::XML_PATH_AUTO_LINK_POLICY => 'nonsense']];
+        foreach ($cases as $values) {
+            $config = $this->config($values);
+            self::assertSame(Config::AUTO_LINK_REQUIRE_VERIFICATION, $config->getAutoLinkPolicy());
+            self::assertTrue($config->isEmailLinkingEnabled());
+        }
     }
 
     public function testGetGroupCustomerGroupMapParsesLines(): void

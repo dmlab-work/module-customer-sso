@@ -2,6 +2,7 @@
 <!--
 /**
  * Copyright © DMLab. All rights reserved.
+ * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.
  */
 -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -61,9 +62,9 @@
                        showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Account Linking by Email</label>
                     <source_model>DmLab\CustomerSso\Model\Config\Source\AutoLinkPolicy</source_model>
-                    <comment><![CDATA[When an SSO email matches an existing customer:
-                        <em>Auto-link</em> signs them straight in;
-                        <em>Require verification</em> blocks the takeover until the email is proven.]]></comment>
+                    <comment><![CDATA[When an SSO email matches an existing customer: link it only if
+                        the IdP marked the email verified, or never (the customer links from
+                        My Account → Single Sign-On).]]></comment>
                     <depends>
                         <field id="enabled">1</field>
                     </depends>
