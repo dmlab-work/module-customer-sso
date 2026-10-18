@@ -2,8 +2,7 @@
 
 > Provider-agnostic single sign-on for the Magento 2 storefront (OIDC).
 
-[![CI](https://github.com/dmlab-work/module-customer-sso/actions/workflows/ci.yml/badge.svg)](https://github.com/dmlab-work/module-customer-sso/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/dmlab-work/module-customer-sso/graph/badge.svg)](https://codecov.io/gh/dmlab-work/module-customer-sso) [![Packagist](https://img.shields.io/packagist/dt/dmlab/module-customer-sso)](https://packagist.org/packages/dmlab/module-customer-sso)
-![License](https://img.shields.io/badge/license-OSL--3.0-green) ![Magento](https://img.shields.io/badge/Magento-2.4-orange) ![PHP](https://img.shields.io/badge/PHP-8.3--8.5-blue) ![Version](https://img.shields.io/badge/version-0.2.0-lightgrey)
+[![CI](https://github.com/dmlab-work/module-customer-sso/actions/workflows/ci.yml/badge.svg)](https://github.com/dmlab-work/module-customer-sso/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/dmlab-work/module-customer-sso/graph/badge.svg)](https://codecov.io/gh/dmlab-work/module-customer-sso) [![Packagist Version](https://img.shields.io/packagist/v/dmlab/module-customer-sso)](https://packagist.org/packages/dmlab/module-customer-sso) [![Downloads](https://img.shields.io/packagist/dt/dmlab/module-customer-sso)](https://packagist.org/packages/dmlab/module-customer-sso) [![PHP](https://img.shields.io/packagist/dependency-v/dmlab/module-customer-sso/php)](https://packagist.org/packages/dmlab/module-customer-sso) [![License](https://img.shields.io/packagist/l/dmlab/module-customer-sso)](LICENSE) ![Magento](https://img.shields.io/badge/Magento-2.4-orange)
 
 This is the storefront-login capability **core**: it logs shoppers in over OIDC but never references a concrete IdP. Install a provider plugin (e.g. `customer-sso-okta`) to bind it to an identity provider.
 
