@@ -9,7 +9,6 @@ namespace DmLab\CustomerSso\Controller\Account;
 
 use DmLab\CustomerSso\Model\Oidc\AuthorizationStarter;
 use DmLab\CustomerSso\Model\SsoIntent;
-use Magento\Customer\Controller\AccountInterface;
 use Magento\Customer\Model\Session;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\Controller\Result\Redirect;
@@ -23,7 +22,7 @@ use Psr\Log\LoggerInterface;
  * Starts linking an IdP identity to the signed-in customer: a `link` intent bound to the
  * session customer, completed by the SSO callback.
  */
-class Link implements HttpPostActionInterface, AccountInterface
+class Link implements HttpPostActionInterface
 {
     /** My Account → Single Sign-On page. */
     private const ACCOUNT_SSO_PATH = 'customersso/account';

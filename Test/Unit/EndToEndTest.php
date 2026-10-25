@@ -52,6 +52,7 @@ use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Math\Random;
 use Magento\Framework\Message\ManagerInterface;
 use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
+use Magento\Framework\Stdlib\Cookie\PublicCookieMetadata;
 use Magento\Framework\Stdlib\CookieManagerInterface;
 use Magento\Framework\TestFramework\Unit\Helper\MockCreationTrait;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
@@ -274,10 +275,12 @@ class EndToEndTest extends TestCase
         );
 
         $this->session = $this->createMock(Session::class);
+        $cookieMetadataFactory = $this->createStub(CookieMetadataFactory::class);
+        $cookieMetadataFactory->method('createPublicCookieMetadata')->willReturn(new PublicCookieMetadata());
         $sessionCreator = new CustomerSessionCreator(
             $this->session,
             $this->createStub(CookieManagerInterface::class),
-            $this->createStub(CookieMetadataFactory::class)
+            $cookieMetadataFactory
         );
 
         $this->startRedirect = $this->createMock(Redirect::class);

@@ -12,6 +12,7 @@ use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Model\Session;
 use Magento\Framework\Stdlib\Cookie\CookieMetadata;
 use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
+use Magento\Framework\Stdlib\Cookie\PublicCookieMetadata;
 use Magento\Framework\Stdlib\CookieManagerInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -36,6 +37,8 @@ class CustomerSessionCreatorTest extends TestCase
         $this->customerSession = $this->createMock(Session::class);
         $this->cookieManager = $this->createMock(CookieManagerInterface::class);
         $this->cookieMetadataFactory = $this->createMock(CookieMetadataFactory::class);
+        $this->cookieMetadataFactory->method('createPublicCookieMetadata')
+            ->willReturnCallback(static fn (): PublicCookieMetadata => new PublicCookieMetadata());
         $this->creator = new CustomerSessionCreator(
             $this->customerSession,
             $this->cookieManager,
@@ -72,12 +75,30 @@ class CustomerSessionCreatorTest extends TestCase
         $this->creator->create($this->createStub(CustomerInterface::class));
     }
 
-    public function testLeavesCookiesAloneWhenPrivateContentCookieAbsent(): void
+    public function testSkipsDeleteWhenPrivateContentCookieAbsent(): void
     {
         $this->customerSession->expects(self::once())->method('setCustomerDataAsLoggedIn');
         $this->cookieManager->method('getCookie')->with('mage-cache-sessid')->willReturn(null);
         $this->cookieMetadataFactory->expects(self::never())->method('createCookieMetadata');
         $this->cookieManager->expects(self::never())->method('deleteCookie');
+
+        $this->creator->create($this->createStub(CustomerInterface::class));
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testForcesSectionReloadEvenWithoutPriorSectionLoad(): void
+    {
+        // A fresh browser has no mage-cache-sessid / section_data_ids, so only section_data_clean triggers a reload.
+        $this->cookieManager->method('getCookie')->willReturn(null);
+        $this->cookieManager->expects(self::once())
+            ->method('setPublicCookie')
+            ->with(
+                'section_data_clean',
+                self::callback(static fn (string $value): bool => $value !== '' && !is_numeric($value)),
+                self::callback(static fn (PublicCookieMetadata $metadata): bool => $metadata->getPath() === '/'
+                    && $metadata->getHttpOnly() === false
+                    && $metadata->getDuration() > 0)
+            );
 
         $this->creator->create($this->createStub(CustomerInterface::class));
     }

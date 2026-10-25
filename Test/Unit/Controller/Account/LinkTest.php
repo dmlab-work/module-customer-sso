@@ -89,7 +89,7 @@ class LinkTest extends TestCase
         $this->logger->expects(self::never())->method('critical');
 
         self::assertInstanceOf(HttpPostActionInterface::class, $this->controller);
-        self::assertInstanceOf(AccountInterface::class, $this->controller);
+        self::assertNotInstanceOf(AccountInterface::class, $this->controller);
         self::assertSame($this->redirect, $this->controller->execute());
         self::assertInstanceOf(SsoIntent::class, $captured);
         self::assertTrue($captured->isLink());

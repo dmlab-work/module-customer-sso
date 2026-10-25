@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace DmLab\CustomerSso\Controller\Account;
 
 use DmLab\CustomerSso\Model\SubjectLink;
-use Magento\Customer\Controller\AccountInterface;
 use Magento\Customer\Model\Session;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\RequestInterface;
@@ -19,7 +18,7 @@ use Magento\Framework\Message\ManagerInterface;
 /**
  * Removes one of the signed-in customer's own SSO links (by `provider_code`).
  */
-class Unlink implements HttpPostActionInterface, AccountInterface
+class Unlink implements HttpPostActionInterface
 {
     /** Request param naming the provider whose link is removed. */
     public const PARAM_PROVIDER_CODE = 'provider_code';

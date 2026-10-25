@@ -73,7 +73,7 @@ class UnlinkTest extends TestCase
         $this->redirect->expects(self::once())->method('setPath')->with('customersso/account')->willReturnSelf();
 
         self::assertInstanceOf(HttpPostActionInterface::class, $this->controller);
-        self::assertInstanceOf(AccountInterface::class, $this->controller);
+        self::assertNotInstanceOf(AccountInterface::class, $this->controller);
         self::assertSame($this->redirect, $this->controller->execute());
     }
 

@@ -32,6 +32,21 @@ class CustomerSessionCreator
     private const PRIVATE_CONTENT_COOKIE = 'mage-cache-sessid';
 
     /**
+     * Read and cleared by `customer-data.js`, which then reloads every section (core store switch uses it too).
+     */
+    private const SECTION_DATA_CLEAN_COOKIE = 'section_data_clean';
+
+    /**
+     * Safety-net lifetime (seconds) in case no page runs `customer-data.js` to clear it.
+     */
+    private const SECTION_DATA_CLEAN_LIFETIME = 60;
+
+    /**
+     * Must be a non-numeric string: the JS JSON-decodes cookies and `_.isEmpty()` treats numbers as empty.
+     */
+    private const SECTION_DATA_CLEAN_VALUE = 'customer_sso';
+
+    /**
      * @param Session $customerSession
      * @param CookieManagerInterface $cookieManager
      * @param CookieMetadataFactory $cookieMetadataFactory
@@ -46,7 +61,9 @@ class CustomerSessionCreator
     /**
      * Log the given customer into the current storefront session.
      *
-     * Also resets private content, as native `LoginPost` does — the GET callback is not covered by `sections.xml`.
+     * Also resets private content, as native `LoginPost` does, and forces a reload of all customer
+     * sections: the GET callback is not covered by `sections.xml`, and a browser that never loaded
+     * sections has no `section_data_ids` to invalidate.
      *
      * @param CustomerInterface $customer persisted customer to authenticate
      */
@@ -59,5 +76,14 @@ class CustomerSessionCreator
             $metadata->setPath('/');
             $this->cookieManager->deleteCookie(self::PRIVATE_CONTENT_COOKIE, $metadata);
         }
+
+        $this->cookieManager->setPublicCookie(
+            self::SECTION_DATA_CLEAN_COOKIE,
+            self::SECTION_DATA_CLEAN_VALUE,
+            $this->cookieMetadataFactory->createPublicCookieMetadata()
+                ->setHttpOnly(false)
+                ->setDuration(self::SECTION_DATA_CLEAN_LIFETIME)
+                ->setPath('/')
+        );
     }
 }
