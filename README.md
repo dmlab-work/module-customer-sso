@@ -94,7 +94,7 @@ The default button template uses Luma markup. In a Hyvä theme, point the block 
 
 ## Requirements
 
-- Magento **2.4.x**
+- Magento **2.4.x** (tested on 2.4.9)
 - `dmlab/module-sso-core` **^0.2** (installed automatically)
 - PHP **8.3 – 8.5**
 
