@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Fixed: guests opening My Account → Single Sign-On got HTTP 500 instead of the login redirect.
+- Fixed: header greeting and mini-cart stayed stale after SSO sign-in in a fresh browser.
+- Tested on Magento 2.4.9 and PHP 8.5.
+
 ## 0.2.0
 
 - **Email adoption and JIT creation require an IdP-verified email** (`email_verified`); unverified → login refused, nothing created or linked. `auto_link_policy` values: `require_verification` (default; legacy `auto` maps here) and `disabled`.
