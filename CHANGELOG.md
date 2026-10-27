@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4
+
+- Added: **Sign Out of IdP on Logout** (`dmlab_customer_sso/general/idp_logout`, store-scoped, default No). Customer logout of an SSO session redirects to the IdP `end_session_endpoint` with `id_token_hint`, returning to `customer/account/logoutSuccess/`; register that URL per store at the IdP.
+- Added: `CallbackHandler::complete()` returning `CallbackResult` (identity + ID token + provider code).
+- Requires `dmlab/module-sso-core ^0.2.3`.
+
 ## 0.2.3
 
 - Fixed: `setup:upgrade` from 0.2.1 kept the old `(provider_code, subject_id)` unique index, so the issuer and per-website links of 0.2.2 still collided. Run `setup:upgrade`.
