@@ -175,6 +175,25 @@ class CallbackTest extends TestCase
         self::assertSame($this->redirect, $controller->execute());
     }
 
+    public function testForwardsIssResponseParam(): void
+    {
+        $this->withParams(['code' => 'the-code', 'state' => 'the-state', 'iss' => 'https://idp.example']);
+        $customer = $this->createStub(CustomerInterface::class);
+        $this->handler->expects(self::once())
+            ->method('handle')
+            ->with('the-code', 'the-state', 'https://idp.example')
+            ->willReturn(new Identity('user-1'));
+        $this->provisioner->expects(self::once())->method('provision')->willReturn($customer);
+        $this->groupAssigner->expects(self::once())->method('assign')->willReturn($customer);
+        $this->sessionCreator->expects(self::once())->method('create')->with($customer);
+        $this->identityLinker->expects(self::never())->method('link');
+        $this->redirect->expects(self::once())->method('setPath')->with('customer/account');
+        $this->messageManager->expects(self::never())->method('addErrorMessage');
+        $this->logger->expects(self::never())->method('critical');
+
+        $this->controller->execute();
+    }
+
     /**
      * Run the callback with a link intent bound to customer 42, the session as given.
      */

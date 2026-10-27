@@ -88,14 +88,14 @@ The default button template uses Luma markup. In a Hyvä theme, point the block 
 ## How it works
 
 1. Shopper clicks "Sign in with SSO" → `customersso/sso/start` builds the OIDC auth URL (state + nonce + PKCE) via sso-core and the active preset, persists the state and a `login` intent (optional own-origin return URL) in the customer session, then redirects to the IdP. Linking starts the same way from `customersso/account/link` (POST, signed-in only) with a `link` intent.
-2. IdP redirects back to `customersso/sso/callback`, which validates `state`, exchanges the code, and normalizes claims into an `Identity` via sso-core. Failures return with a message to the login page, or to My Account → Single Sign-On for a `link` intent.
+2. IdP redirects back to `customersso/sso/callback`, which validates `state` and the RFC 9207 `iss` response parameter, exchanges the code, and normalizes claims into an `Identity` via sso-core. Failures return with a message to the login page, or to My Account → Single Sign-On for a `link` intent.
 3. `login`: the customer is matched (`sub` → verified email under policy → verified JIT create), the group is resolved, the session is established and `mage-cache-sessid` is reset so private content reloads; redirect to the return URL or My Account.
 4. `link`: the identity is linked to the session customer; redirect to My Account → Single Sign-On.
 
 ## Requirements
 
 - Magento **2.4.x** (tested on 2.4.9)
-- `dmlab/module-sso-core` **^0.2** (installed automatically)
+- `dmlab/module-sso-core` **^0.2.2** (installed automatically)
 - PHP **8.3 – 8.5**
 
 ## Part of the DMLab identity suite

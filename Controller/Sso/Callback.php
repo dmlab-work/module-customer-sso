@@ -104,7 +104,7 @@ class Callback implements HttpGetActionInterface
         }
 
         try {
-            $identity = $this->callbackHandler->handle($code, $state);
+            $identity = $this->callbackHandler->handle($code, $state, $this->issParam());
             $intent = $this->intentStorage->consume($state) ?? new SsoIntent(SsoIntent::MODE_LOGIN);
             if ($intent->isLink()) {
                 return $this->linkIdentity($intent, $identity);
@@ -204,6 +204,16 @@ class Callback implements HttpGetActionInterface
         $result->setPath($path);
 
         return $result;
+    }
+
+    /**
+     * RFC 9207 `iss` response param, or null when the IdP did not send one.
+     */
+    private function issParam(): ?string
+    {
+        $iss = $this->request->getParam('iss');
+
+        return is_string($iss) ? $iss : null;
     }
 
     /**

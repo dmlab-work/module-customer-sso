@@ -26,14 +26,13 @@ use DmLab\SsoCore\Api\Data\AuthorizationStateInterface;
 use DmLab\SsoCore\Api\ProviderPresetInterface;
 use DmLab\SsoCore\Model\Mapping\MappingEngine;
 use DmLab\SsoCore\Model\Oidc\AuthorizationRequestFactory;
+use DmLab\SsoCore\Model\Oidc\AuthorizationResponseValidator;
 use DmLab\SsoCore\Model\Oidc\DiscoveryClient;
 use DmLab\SsoCore\Model\Oidc\IdentityFactory;
 use DmLab\SsoCore\Model\Oidc\IdTokenValidator;
-use DmLab\SsoCore\Model\Oidc\JwksClient;
 use DmLab\SsoCore\Model\Oidc\ProviderMetadata;
 use DmLab\SsoCore\Model\Oidc\TokenClient;
 use DmLab\SsoCore\Model\Oidc\TokenResponse;
-use Jose\Component\Core\JWKSet;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\Data\CustomerInterfaceFactory;
@@ -171,6 +170,7 @@ class EndToEndTest extends TestCase
         ];
         $this->claims = [
             'sub' => self::SUBJECT,
+            'iss' => 'https://idp.example.com',
             'email' => self::EMAIL,
             'email_verified' => true,
             'name' => 'Jane Shopper',
@@ -230,21 +230,19 @@ class EndToEndTest extends TestCase
 
         $tokenClient = $this->createStub(TokenClient::class);
         $tokenClient->method('exchangeCode')->willReturn(new TokenResponse('id-token-jwt'));
-        $jwksClient = $this->createStub(JwksClient::class);
-        $jwksClient->method('getKeySetForToken')->willReturn(new JWKSet([]));
         $idTokenValidator = $this->createStub(IdTokenValidator::class);
-        $idTokenValidator->method('validate')->willReturnCallback(fn(): array => $this->claims);
+        $idTokenValidator->method('validateForProvider')->willReturnCallback(fn(): array => $this->claims);
 
         $callbackHandler = new CallbackHandler(
             $config,
             $resolver,
             $discoveryClient,
             $tokenClient,
-            $jwksClient,
             $idTokenValidator,
             new IdentityFactory(),
             $this->stateStorage,
-            $url
+            $url,
+            new AuthorizationResponseValidator()
         );
 
         [$storeManager, $customerRepository] = [$this->storeManager(), $this->customerRepository()];

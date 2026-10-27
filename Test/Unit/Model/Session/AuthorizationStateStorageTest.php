@@ -63,6 +63,13 @@ class AuthorizationStateStorageTest extends TestCase
         self::assertNull($this->storage->consume('s1'));
     }
 
+    public function testIssuerRoundTrips(): void
+    {
+        $this->storage->save(new AuthorizationState('s1', 'n1', 'v1', 'https://idp.example'));
+
+        self::assertSame('https://idp.example', $this->storage->consume('s1')?->getIssuer());
+    }
+
     public function testConsumeUnknownStateReturnsNull(): void
     {
         self::assertNull($this->storage->consume('missing'));

@@ -93,7 +93,8 @@ class AuthorizationStarter
             $preset->getDefaultScopes(),
             $preset instanceof AuthorizationParamsProviderInterface
                 ? $preset->getAuthorizationParams($presetConfig)
-                : []
+                : [],
+            $metadata->getIssuer()
         );
 
         $this->stateStorage->save($request);

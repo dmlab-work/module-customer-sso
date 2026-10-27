@@ -114,7 +114,8 @@ class AuthorizationStarterTest extends TestCase
                 'cid',
                 self::CALLBACK_URL,
                 ['openid', 'email', 'groups'],
-                []
+                [],
+                'https://idp.example'
             )
             ->willReturn($request);
 
