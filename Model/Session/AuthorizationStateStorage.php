@@ -19,7 +19,7 @@ use Magento\Customer\Model\Session;
  * redirecting to the IdP; the callback controller {@see consume}s it once. Entries
  * are held in the storefront customer session under a single session key so several
  * in-flight logins from one browser don't clobber each other. Consuming an entry
- * removes it, giving replay protection.
+ * removes it, giving replay protection; entries expire and are capped by {@see PendingEntries}.
  */
 class AuthorizationStateStorage implements AuthorizationStateStorageInterface
 {
@@ -28,9 +28,11 @@ class AuthorizationStateStorage implements AuthorizationStateStorageInterface
 
     /**
      * @param Session $session
+     * @param PendingEntries $pendingEntries
      */
     public function __construct(
-        private readonly Session $session
+        private readonly Session $session,
+        private readonly PendingEntries $pendingEntries
     ) {
     }
 
@@ -39,12 +41,11 @@ class AuthorizationStateStorage implements AuthorizationStateStorageInterface
      */
     public function save(AuthorizationStateInterface $state): void
     {
-        $states = $this->load();
-        $states[$state->getState()] = [
+        $states = $this->pendingEntries->add($this->load(), $state->getState(), [
             'nonce' => $state->getNonce(),
             'code_verifier' => $state->getCodeVerifier(),
             'issuer' => $state->getIssuer(),
-        ];
+        ]);
         $this->session->setData(self::SESSION_KEY, $states);
     }
 
@@ -53,14 +54,16 @@ class AuthorizationStateStorage implements AuthorizationStateStorageInterface
      */
     public function consume(string $state): ?AuthorizationStateInterface
     {
-        $states = $this->load();
-        if (!isset($states[$state])) {
+        $stored = $this->load();
+        $states = $this->pendingEntries->prune($stored);
+        $entry = $states[$state] ?? null;
+        unset($states[$state]);
+        if ($states !== $stored) {
+            $this->session->setData(self::SESSION_KEY, $states);
+        }
+        if ($entry === null) {
             return null;
         }
-
-        $entry = $states[$state];
-        unset($states[$state]);
-        $this->session->setData(self::SESSION_KEY, $states);
 
         return new AuthorizationState(
             $state,
@@ -73,7 +76,7 @@ class AuthorizationStateStorage implements AuthorizationStateStorageInterface
     /**
      * Load the pending-state map from the session.
      *
-     * @return array<string,array{nonce:string,code_verifier:string,issuer?:string}>
+     * @return array<string,mixed>
      */
     private function load(): array
     {

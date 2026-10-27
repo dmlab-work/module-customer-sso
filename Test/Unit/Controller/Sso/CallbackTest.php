@@ -175,6 +175,21 @@ class CallbackTest extends TestCase
         self::assertSame($this->redirect, $controller->execute());
     }
 
+    public function testRefusesLoginWhenAlreadySignedIn(): void
+    {
+        $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
+        $this->handler->expects(self::once())->method('handle')->willReturn(new Identity('user-1'));
+        $this->customerSession->method('isLoggedIn')->willReturn(true);
+        $this->expectNoProvisioning();
+        $this->identityLinker->expects(self::never())->method('link');
+        $this->messageManager->expects(self::once())->method('addErrorMessage')
+            ->with('You are already signed in. Sign out first to sign in with a different account.');
+        $this->logger->expects(self::never())->method('critical');
+        $this->redirect->expects(self::once())->method('setPath')->with('customer/account');
+
+        self::assertSame($this->redirect, $this->controller->execute());
+    }
+
     public function testForwardsIssResponseParam(): void
     {
         $this->withParams(['code' => 'the-code', 'state' => 'the-state', 'iss' => 'https://idp.example']);

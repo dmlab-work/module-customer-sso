@@ -123,9 +123,9 @@ class GroupAssignerTest extends TestCase
         );
     }
 
-    public function testFirstResolvedGroupWinsWithMultipleGroups(): void
+    public function testFirstConfiguredRuleWinsRegardlessOfIdpGroupOrder(): void
     {
-        // A customer holds a single group; the first resolved rule wins.
+        // A customer holds a single group; the first matching config line wins, not the IdP's order.
         $this->withRules(['a' => '10', 'b' => '20']);
         $this->existingGroups(['10', '20']);
         $customer = $this->customer(self::DEFAULT_GROUP_ID);
@@ -133,7 +133,7 @@ class GroupAssignerTest extends TestCase
         $customer->expects(self::once())->method('setGroupId')->with(10);
         $this->customerRepository->expects(self::once())->method('save')->with($customer)->willReturn($customer);
 
-        $this->assigner->assign($customer, new Identity('sub', 'u@example.com', 'U', ['a', 'b']));
+        $this->assigner->assign($customer, new Identity('sub', 'u@example.com', 'U', ['b', 'a']));
     }
 
     public function testFallsBackToDefaultGroupWhenNoGroupMatches(): void

@@ -36,9 +36,10 @@ use Psr\Log\LoggerInterface;
  * resolves the customer — by IdP subject, then email under the auto-link policy,
  * else JIT create — assigns its customer group from the IdP groups, and establishes
  * the storefront session, then lands the shopper on the intent's return URL or the
- * account area. A `link` intent instead binds the identity to the signed-in customer
- * via {@see IdentityLinker} and returns to My Account → Single Sign-On. Any failure
- * is turned into an error message so the shopper is never left on a broken page.
+ * account area; a login callback for an already signed-in shopper is refused. A
+ * `link` intent instead binds the identity to the signed-in customer via
+ * {@see IdentityLinker} and returns to My Account → Single Sign-On. Any failure is
+ * turned into an error message so the shopper is never left on a broken page.
  */
 class Callback implements HttpGetActionInterface
 {
@@ -108,6 +109,13 @@ class Callback implements HttpGetActionInterface
             $intent = $this->intentStorage->consume($state) ?? new SsoIntent(SsoIntent::MODE_LOGIN);
             if ($intent->isLink()) {
                 return $this->linkIdentity($intent, $identity);
+            }
+            // Logging another account into a live session would merge this customer's cart into it.
+            if ($this->customerSession->isLoggedIn()) {
+                $this->messageManager->addErrorMessage(
+                    __('You are already signed in. Sign out first to sign in with a different account.')
+                );
+                return $this->redirectTo('customer/account');
             }
             $customer = $this->customerProvisioner->provision($identity);
             $customer = $this->groupAssigner->assign($customer, $identity);

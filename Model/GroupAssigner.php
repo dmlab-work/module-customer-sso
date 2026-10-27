@@ -23,7 +23,7 @@ use Magento\Store\Model\StoreManagerInterface;
  * The rules come from admin config ({@see Config::getGroupCustomerGroupMap()});
  * sso-core's {@see MappingEngine} resolves the groups against them, falling back
  * to the store's default customer group when nothing matches. A customer holds a
- * single group, so the first resolved group wins.
+ * single group, so the first matching rule (config line order) wins.
  *
  * Only active when the admin has configured a group map: with no rules it is a
  * no-op, so a store using SSO purely for login never has its manually curated

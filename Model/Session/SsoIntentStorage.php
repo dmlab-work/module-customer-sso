@@ -12,7 +12,8 @@ use Magento\Customer\Model\Session;
 
 /**
  * Customer-session store for {@see SsoIntent}s keyed by the OIDC `state` token,
- * mirroring {@see AuthorizationStateStorage}. Consuming an entry removes it.
+ * mirroring {@see AuthorizationStateStorage}. Consuming an entry removes it; entries
+ * expire and are capped by {@see PendingEntries}.
  */
 class SsoIntentStorage
 {
@@ -21,9 +22,11 @@ class SsoIntentStorage
 
     /**
      * @param Session $session
+     * @param PendingEntries $pendingEntries
      */
     public function __construct(
-        private readonly Session $session
+        private readonly Session $session,
+        private readonly PendingEntries $pendingEntries
     ) {
     }
 
@@ -36,12 +39,11 @@ class SsoIntentStorage
      */
     public function save(string $state, SsoIntent $intent): void
     {
-        $intents = $this->load();
-        $intents[$state] = [
+        $intents = $this->pendingEntries->add($this->load(), $state, [
             'mode' => $intent->getMode(),
             'customer_id' => $intent->getCustomerId(),
             'return_url' => $intent->getReturnUrl(),
-        ];
+        ]);
         $this->session->setData(self::SESSION_KEY, $intents);
     }
 
@@ -49,18 +51,20 @@ class SsoIntentStorage
      * Load and remove the intent for the given `state` token.
      *
      * @param string $state
-     * @return SsoIntent|null null when unknown or malformed
+     * @return SsoIntent|null null when unknown, expired or malformed
      */
     public function consume(string $state): ?SsoIntent
     {
-        $intents = $this->load();
-        if (!isset($intents[$state])) {
+        $stored = $this->load();
+        $intents = $this->pendingEntries->prune($stored);
+        $entry = $intents[$state] ?? null;
+        unset($intents[$state]);
+        if ($intents !== $stored) {
+            $this->session->setData(self::SESSION_KEY, $intents);
+        }
+        if ($entry === null) {
             return null;
         }
-
-        $entry = $intents[$state];
-        unset($intents[$state]);
-        $this->session->setData(self::SESSION_KEY, $intents);
 
         try {
             return new SsoIntent(
@@ -76,7 +80,7 @@ class SsoIntentStorage
     /**
      * Load the pending-intent map from the session.
      *
-     * @return array<string,array{mode:string,customer_id:?int,return_url:?string}>
+     * @return array<string,mixed>
      */
     private function load(): array
     {

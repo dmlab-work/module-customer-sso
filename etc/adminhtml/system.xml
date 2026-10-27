@@ -73,7 +73,7 @@
                        showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Group to Customer-Group Map</label>
                     <comment><![CDATA[One rule per line as <code>idp_group=customer_group_id</code>.
-                        Blank lines and <code>#</code> comments are ignored.]]></comment>
+                        The first matching line wins. Blank lines and <code>#</code> comments are ignored.]]></comment>
                     <depends>
                         <field id="enabled">1</field>
                     </depends>

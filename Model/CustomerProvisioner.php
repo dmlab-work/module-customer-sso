@@ -11,6 +11,7 @@ use DmLab\SsoCore\Api\Data\IdentityInterface;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\Data\CustomerInterfaceFactory;
+use Magento\Customer\Model\AccountConfirmation;
 use Magento\Customer\Model\Config\Share;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
@@ -57,6 +58,7 @@ class CustomerProvisioner
      * @param Config $config
      * @param ActiveProviderResolver $activeProviderResolver
      * @param Share $shareConfig
+     * @param AccountConfirmation $accountConfirmation
      */
     public function __construct(
         private readonly CustomerInterfaceFactory $customerFactory,
@@ -65,7 +67,8 @@ class CustomerProvisioner
         private readonly SubjectLink $subjectLink,
         private readonly Config $config,
         private readonly ActiveProviderResolver $activeProviderResolver,
-        private readonly Share $shareConfig
+        private readonly Share $shareConfig,
+        private readonly AccountConfirmation $accountConfirmation
     ) {
     }
 
@@ -159,7 +162,9 @@ class CustomerProvisioner
      * logins resolve by it. Refuses when the account already holds an identity for the
      * current provider (takeover guard — a match on this identity resolved in step 1),
      * when the IdP did not verify the email, or when email linking is disabled. Links
-     * under other providers do not block adoption.
+     * under other providers do not block adoption. An account still awaiting email
+     * confirmation is refused too: its password was set by someone who never proved the
+     * address, and adopting it would hand that password holder the IdP user's account.
      *
      * @param CustomerInterface $customer customer matched by email
      * @param IdentityInterface $identity
@@ -184,6 +189,15 @@ class CustomerProvisioner
                 __(
                     'An account with this email address already exists. Sign in with your password, '
                     . 'then link single sign-on under My Account → Single Sign-On.'
+                )
+            );
+        }
+
+        if ($this->isAwaitingConfirmation($customer)) {
+            throw new LocalizedException(
+                __(
+                    'An account with this email address is awaiting email confirmation. Confirm it with the '
+                    . 'link we emailed you, then link single sign-on under My Account → Single Sign-On.'
                 )
             );
         }
@@ -240,6 +254,21 @@ class CustomerProvisioner
         );
 
         return $saved;
+    }
+
+    /**
+     * Whether the customer has a pending email confirmation that Magento still enforces.
+     *
+     * @param CustomerInterface $customer
+     */
+    private function isAwaitingConfirmation(CustomerInterface $customer): bool
+    {
+        return (string)$customer->getConfirmation() !== ''
+            && $this->accountConfirmation->isConfirmationRequired(
+                $customer->getWebsiteId(),
+                $customer->getId(),
+                $customer->getEmail()
+            );
     }
 
     /**

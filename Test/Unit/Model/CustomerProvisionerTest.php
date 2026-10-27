@@ -15,11 +15,13 @@ use DmLab\SsoCore\Model\Data\Identity;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Api\Data\CustomerInterfaceFactory;
+use Magento\Customer\Model\AccountConfirmation;
 use Magento\Customer\Model\Config\Share;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -51,6 +53,9 @@ class CustomerProvisionerTest extends TestCase
     /** @var Share&\PHPUnit\Framework\MockObject\Stub */
     private $shareConfig;
 
+    /** @var AccountConfirmation&\PHPUnit\Framework\MockObject\Stub */
+    private $accountConfirmation;
+
     /** @var CustomerProvisioner */
     private CustomerProvisioner $provisioner;
 
@@ -64,6 +69,7 @@ class CustomerProvisionerTest extends TestCase
         $this->activeProviderResolver = $this->createStub(ActiveProviderResolver::class);
         $this->activeProviderResolver->method('getActiveCode')->willReturn('okta');
         $this->shareConfig = $this->createStub(Share::class);
+        $this->accountConfirmation = $this->createStub(AccountConfirmation::class);
 
         $store = $this->createStub(StoreInterface::class);
         $store->method('getId')->willReturn(3);
@@ -77,7 +83,8 @@ class CustomerProvisionerTest extends TestCase
             $this->subjectLink,
             $this->config,
             $this->activeProviderResolver,
-            $this->shareConfig
+            $this->shareConfig,
+            $this->accountConfirmation
         );
     }
 
@@ -376,6 +383,47 @@ class CustomerProvisionerTest extends TestCase
         $this->customerRepository->expects(self::never())->method('save');
         $this->customerFactory->expects(self::never())->method('create');
         $this->subjectLink->expects(self::once())->method('link')->with(7, 'okta', '', 'sub-new');
+
+        self::assertSame(
+            $existing,
+            $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', [], true))
+        );
+    }
+
+    /**
+     * @return array<string, array{bool, bool}>
+     */
+    public static function pendingConfirmation(): array
+    {
+        return ['confirmation enforced' => [true, true], 'confirmation not required' => [false, false]];
+    }
+
+    #[DataProvider('pendingConfirmation')]
+    public function testUnconfirmedAccountIsAdoptedOnlyWhenConfirmationIsNotEnforced(
+        bool $confirmationRequired,
+        bool $refused
+    ): void {
+        $existing = $this->createStub(CustomerInterface::class);
+        $existing->method('getId')->willReturn(7);
+        $existing->method('getWebsiteId')->willReturn(1);
+        $existing->method('getEmail')->willReturn('jane@example.com');
+        $existing->method('getConfirmation')->willReturn('pending-key');
+
+        $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
+        $this->subjectLink->method('getSubjectForProvider')->willReturn(null);
+        $this->config->method('isEmailLinkingEnabled')->willReturn(true);
+        $this->accountConfirmation->method('isConfirmationRequired')
+            ->willReturnCallback(fn($websiteId, $customerId, $email): bool
+                => [$websiteId, $customerId, $email] === [1, 7, 'jane@example.com'] && $confirmationRequired);
+        $this->customerRepository->expects(self::once())->method('get')->willReturn($existing);
+        $this->customerRepository->expects(self::never())->method('save');
+        $this->customerFactory->expects(self::never())->method('create');
+        $this->subjectLink->expects($refused ? self::never() : self::once())->method('link');
+
+        if ($refused) {
+            $this->expectException(LocalizedException::class);
+            $this->expectExceptionMessage('An account with this email address is awaiting email confirmation.');
+        }
 
         self::assertSame(
             $existing,

@@ -119,11 +119,11 @@ class ConfigTest extends TestCase
         self::assertSame(['Staff' => '3', 'vip' => '2'], $config->getGroupCustomerGroupMap());
     }
 
-    public function testGetGroupCustomerGroupMapLastDuplicateWins(): void
+    public function testGetGroupCustomerGroupMapFirstDuplicateWins(): void
     {
-        $config = $this->config([Config::XML_PATH_GROUP_MAP => "team=1\nteam=5"]);
+        $config = $this->config([Config::XML_PATH_GROUP_MAP => "team=1\nvip=2\nteam=5"]);
 
-        self::assertSame(['team' => '5'], $config->getGroupCustomerGroupMap());
+        self::assertSame(['team' => '1', 'vip' => '2'], $config->getGroupCustomerGroupMap());
     }
 
     public function testGetGroupCustomerGroupMapEmptyWhenUnsetOrBlank(): void

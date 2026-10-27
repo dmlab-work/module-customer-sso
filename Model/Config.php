@@ -141,9 +141,9 @@ class Config
     /**
      * Parsed IdP-group → customer-group-id map.
      *
-     * Reads the `group=customer_group_id` lines; blank lines and `#` comments are
-     * ignored, later entries win on duplicate groups. The actual assignment is
-     * applied by {@see GroupAssigner}; this only exposes the rules.
+     * Reads the `group=customer_group_id` lines in order (line order is rule priority);
+     * blank lines and `#` comments are ignored, and a duplicate group keeps its first
+     * line. The actual assignment is applied by {@see GroupAssigner}; this only exposes the rules.
      *
      * @param int|string|null $storeId
      * @return array<string,string> group name → customer group id
@@ -168,7 +168,7 @@ class Config
             [$group, $groupId] = explode('=', $line, 2);
             $group = trim($group);
             $groupId = trim($groupId);
-            if ($group !== '' && $groupId !== '') {
+            if ($group !== '' && $groupId !== '' && !array_key_exists($group, $map)) {
                 $map[$group] = $groupId;
             }
         }

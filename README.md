@@ -57,7 +57,7 @@ An SSO identity is matched to a customer in this order:
 
 1. **By IdP identity** — issuer (`iss`) + subject (`sub`) stored in `dmlab_customer_sso_subject` per provider. Signs in regardless of email verification. A link created before issuers were stored is bound to the issuer of its next matching login.
 2. **By email**, governed by `auto_link_policy`:
-   - `require_verification` (default) — adopt the existing customer only when the IdP marks the email verified (`email_verified`). Legacy `auto` resolves to this.
+   - `require_verification` (default) — adopt the existing customer only when the IdP marks the email verified (`email_verified`) and the account is not awaiting email confirmation. Legacy `auto` resolves to this.
    - `disabled` — never link by email.
 
    Otherwise the login is refused and the shopper is told to sign in with their password and link from My Account — keep *Keep Password Login* on if existing customers may need this path.
@@ -67,7 +67,7 @@ An SSO identity is matched to a customer in this order:
 
 ## Group → customer-group mapping
 
-`group_customer_group_map` takes one rule per line as `idp_group=customer_group_id`, where `customer_group_id` is a Magento `customer_group` id. Blank lines and `#` comments are ignored; on duplicate groups the later line wins.
+`group_customer_group_map` takes one rule per line as `idp_group=customer_group_id`, where `customer_group_id` is a Magento `customer_group` id. Lines are in priority order: a customer holds one group, so the first line matching any of the identity's groups wins, and a duplicate group keeps its first line. Blank lines and `#` comments are ignored.
 
 ```
 # IdP group          Customer group id
@@ -87,9 +87,9 @@ The default button template uses Luma markup. In a Hyvä theme, point the block 
 
 ## How it works
 
-1. Shopper clicks "Sign in with SSO" → `customersso/sso/start` builds the OIDC auth URL (state + nonce + PKCE) via sso-core and the active preset, persists the state and a `login` intent (optional own-origin return URL) in the customer session, then redirects to the IdP. Linking starts the same way from `customersso/account/link` (POST, signed-in only) with a `link` intent.
+1. Shopper clicks "Sign in with SSO" → `customersso/sso/start` builds the OIDC auth URL (state + nonce + PKCE) via sso-core and the active preset, persists the state and a `login` intent (optional own-origin return URL) in the customer session (valid 10 minutes, at most 10 pending per session), then redirects to the IdP. Linking starts the same way from `customersso/account/link` (POST, signed-in only) with a `link` intent.
 2. IdP redirects back to `customersso/sso/callback`, which validates `state` and the RFC 9207 `iss` response parameter, exchanges the code, and normalizes claims into an `Identity` via sso-core. Failures return with a message to the login page, or to My Account → Single Sign-On for a `link` intent.
-3. `login`: the customer is matched (`sub` → verified email under policy → verified JIT create), the group is resolved, the session is established and `mage-cache-sessid` is reset so private content reloads; redirect to the return URL or My Account.
+3. `login` (refused when a customer is already signed in): the customer is matched (issuer + `sub` → verified email under policy → verified JIT create), the group is resolved, the session is established and `mage-cache-sessid` is reset so private content reloads; redirect to the return URL or My Account.
 4. `link`: the identity is linked to the session customer; redirect to My Account → Single Sign-On.
 
 ## Requirements

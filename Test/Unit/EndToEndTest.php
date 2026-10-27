@@ -19,6 +19,7 @@ use DmLab\CustomerSso\Model\IdentityLinker;
 use DmLab\CustomerSso\Model\Oidc\AuthorizationStarter;
 use DmLab\CustomerSso\Model\Oidc\CallbackHandler;
 use DmLab\CustomerSso\Model\PresetRegistry;
+use DmLab\CustomerSso\Model\Session\PendingEntries;
 use DmLab\CustomerSso\Model\Session\SsoIntentStorage;
 use DmLab\CustomerSso\Model\SubjectLink;
 use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
@@ -39,6 +40,7 @@ use Magento\Customer\Api\Data\CustomerInterfaceFactory;
 use Magento\Customer\Api\Data\GroupInterface;
 use Magento\Customer\Api\GroupManagementInterface;
 use Magento\Customer\Api\GroupRepositoryInterface;
+use Magento\Customer\Model\AccountConfirmation;
 use Magento\Customer\Model\Config\Share;
 use Magento\Customer\Model\Session;
 use Magento\Framework\App\Config\ScopeConfigInterface;
@@ -53,6 +55,7 @@ use Magento\Framework\Message\ManagerInterface;
 use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
 use Magento\Framework\Stdlib\Cookie\PublicCookieMetadata;
 use Magento\Framework\Stdlib\CookieManagerInterface;
+use Magento\Framework\Stdlib\DateTime\DateTime;
 use Magento\Framework\TestFramework\Unit\Helper\MockCreationTrait;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Framework\Url\DecoderInterface;
@@ -219,7 +222,9 @@ class EndToEndTest extends TestCase
 
         $this->stateStorage = $this->inMemoryStateStorage();
 
-        $intentStorage = new SsoIntentStorage($this->dataSession());
+        $dateTime = $this->createStub(DateTime::class);
+        $dateTime->method('gmtTimestamp')->willReturnCallback(static fn(): int => time());
+        $intentStorage = new SsoIntentStorage($this->dataSession(), new PendingEntries($dateTime));
 
         $starter = new AuthorizationStarter(
             $config,
@@ -263,7 +268,8 @@ class EndToEndTest extends TestCase
             $subjectLink,
             $config,
             $resolver,
-            $this->createStub(Share::class)
+            $this->createStub(Share::class),
+            $this->createStub(AccountConfirmation::class)
         );
 
         $groupAssigner = new GroupAssigner(
@@ -373,6 +379,7 @@ class EndToEndTest extends TestCase
     {
         $state = $this->runStart();
         $this->sessionData['dmlab_customer_sso_intents'][$state] = [
+            'created_at' => time(),
             'mode' => 'link',
             'customer_id' => 42,
             'return_url' => null,
