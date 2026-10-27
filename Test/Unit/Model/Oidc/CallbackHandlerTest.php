@@ -178,6 +178,33 @@ class CallbackHandlerTest extends TestCase
         self::assertSame($identity, $this->handler->handle(self::CODE, self::STATE, 'https://idp.example'));
     }
 
+    public function testCompleteReturnsIdTokenAndProviderCode(): void
+    {
+        $preset = $this->preset();
+        $preset->method('getCode')->willReturn('okta');
+        $identity = new Identity('user-1');
+
+        $this->config->method('isEnabled')->willReturn(true);
+        $this->config->method('getClientId')->willReturn('cid');
+        $this->resolver->method('getActive')->willReturn($preset);
+        $this->url->method('getUrl')->willReturn(self::CALLBACK_URL);
+        $this->stateStorage->expects(self::once())->method('consume')
+            ->willReturn(new AuthorizationState(self::STATE, self::NONCE, self::VERIFIER, 'https://idp.example'));
+        $this->discoveryClient->expects(self::once())->method('discover')->willReturn($this->metadata());
+        $this->responseValidator->expects(self::once())->method('validateIssuer');
+        $this->tokenClient->expects(self::once())->method('exchangeCode')
+            ->willReturn(new TokenResponse('raw-id-token'));
+        $this->idTokenValidator->expects(self::once())->method('validateForProvider')
+            ->willReturn(['sub' => 'user-1']);
+        $this->identityFactory->expects(self::once())->method('create')->willReturn($identity);
+
+        $result = $this->handler->complete(self::CODE, self::STATE);
+
+        self::assertSame($identity, $result->getIdentity());
+        self::assertSame('raw-id-token', $result->getIdToken());
+        self::assertSame('okta', $result->getProviderCode());
+    }
+
     public function testIssuerMismatchRejectsBeforeCodeExchange(): void
     {
         $this->config->method('isEnabled')->willReturn(true);
@@ -220,7 +247,8 @@ class CallbackHandlerTest extends TestCase
         $this->tokenClient->expects(self::once())
             ->method('exchangeCode')
             ->willReturn(new TokenResponse('the-id-token'));
-        $this->idTokenValidator->expects(self::once())->method('validateForProvider')->willReturn(['sub' => 'user-1']);
+        $this->idTokenValidator->expects(self::once())->method('validateForProvider')
+            ->willReturn(['sub' => 'user-1']);
         $this->identityFactory->expects(self::once())
             ->method('create')
             ->willReturn(new Identity('user-1', null, null, []));

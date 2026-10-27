@@ -20,6 +20,7 @@ use DmLab\CustomerSso\Model\Oidc\AuthorizationStarter;
 use DmLab\CustomerSso\Model\Oidc\CallbackHandler;
 use DmLab\CustomerSso\Model\PresetRegistry;
 use DmLab\CustomerSso\Model\Session\PendingEntries;
+use DmLab\CustomerSso\Model\Session\IdpSessionStorage;
 use DmLab\CustomerSso\Model\Session\SsoIntentStorage;
 use DmLab\CustomerSso\Model\SubjectLink;
 use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
@@ -287,7 +288,8 @@ class EndToEndTest extends TestCase
         $sessionCreator = new CustomerSessionCreator(
             $this->session,
             $this->createStub(CookieManagerInterface::class),
-            $cookieMetadataFactory
+            $cookieMetadataFactory,
+            new IdpSessionStorage($this->session)
         );
 
         $this->startRedirect = $this->createMock(Redirect::class);

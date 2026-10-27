@@ -57,3 +57,9 @@ General,General
 "Password sign-in is disabled for this store. Please sign in with single sign-on.","Password sign-in is disabled for this store. Please sign in with single sign-on."
 "You are already signed in. Sign out first to sign in with a different account.","You are already signed in. Sign out first to sign in with a different account."
 "An account with this email address is awaiting email confirmation. Confirm it with the link we emailed you, then link single sign-on under My Account → Single Sign-On.","An account with this email address is awaiting email confirmation. Confirm it with the link we emailed you, then link single sign-on under My Account → Single Sign-On."
+"Sign Out of IdP on Logout","Sign Out of IdP on Logout"
+"Customer logout also ends the IdP session (all apps signed in through it) when
+                        the IdP advertises <code>end_session_endpoint</code>. Register
+                        <code>customer/account/logoutSuccess</code> as a post-logout redirect URI at the IdP.","Customer logout also ends the IdP session (all apps signed in through it) when
+                        the IdP advertises <code>end_session_endpoint</code>. Register
+                        <code>customer/account/logoutSuccess</code> as a post-logout redirect URI at the IdP."

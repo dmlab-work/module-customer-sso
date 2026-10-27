@@ -48,6 +48,7 @@ Admin → Stores → Configuration → **DMLab → Customer SSO → General** (c
 | Keep Password Login | `allow_password_login` | On (default): native email/password login stays available alongside SSO. Off: once SSO is live, login is SSO-only — the form is hidden and password login is refused server-side (login form, checkout popup, REST and GraphQL customer tokens). |
 | Account Linking by Email | `auto_link_policy` | `require_verification` (default) or `disabled`. See below. |
 | Group to Customer-Group Map | `group_customer_group_map` | IdP group → customer-group rules. See below. |
+| Sign Out of IdP on Logout | `idp_logout` | Off by default. See below. |
 
 The "Sign in with SSO" button appears on the customer login page and in the Luma checkout login popups (authentication popup and the checkout authentication step) when the module is enabled and a provider is selected; it uses the active preset's branding. Popup sign-in returns the shopper to checkout. Custom placements can link to `customersso/sso/start?referer=<base64 URL>` to return to that page; a URL off the store's own origin is ignored. Setting *Keep Password Login* to *No* hides the native form and refuses password login once SSO is live. As a break-glass, password login stays available on an unconfigured or broken install (no active provider), so a mis-set toggle can never lock shoppers out.
 
@@ -77,6 +78,12 @@ vip=3
 
 With no rules configured this is inert: customer groups are never touched, so a store using SSO only for login keeps its manually assigned groups. Once a map exists, groups are resolved on JIT create and refreshed on every login, so IdP group changes take effect at next sign-in. An identity whose groups match no rule reverts to the store's default customer group (`GroupManagementInterface::getDefaultGroup`) — customers always hold a valid group. A rule pointing at a non-existent group id is skipped, leaving the current group unchanged. When the IdP marks the groups claim as distributed (groups overage, e.g. Entra `_claim_names`), the token's groups are incomplete and the current group is left unchanged.
 
+## IdP logout
+
+With **Sign Out of IdP on Logout** on, a shopper who signed in with SSO is also signed out of the IdP (OIDC RP-Initiated Logout 1.0): after the local logout the browser goes to the IdP's `end_session_endpoint` with `id_token_hint` (the login's ID token, kept in the customer session), `client_id` and `post_logout_redirect_uri`, then returns to the logout success page. This ends the shopper's IdP session for every app using it.
+
+Register `https://<store-host>/customer/account/logoutSuccess/` (each store base URL) as a post-logout redirect URI at the IdP. If the IdP advertises no `end_session_endpoint`, discovery fails, the store's active provider changed since login, or the shopper signed in with a password, logout stays local.
+
 ## Hyvä
 
 The default button template uses Luma markup. In a Hyvä theme, point the block at the bundled Tailwind template in the theme's `Magento_Customer/layout/customer_account_login.xml`:
@@ -95,7 +102,7 @@ The default button template uses Luma markup. In a Hyvä theme, point the block 
 ## Requirements
 
 - Magento **2.4.x** (tested on 2.4.9)
-- `dmlab/module-sso-core` **^0.2.2** (installed automatically)
+- `dmlab/module-sso-core` **^0.2.3** (installed automatically)
 - PHP **8.3 – 8.5**
 
 ## Part of the DMLab identity suite

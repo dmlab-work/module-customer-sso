@@ -40,6 +40,9 @@ class Config
     /** IdP-group → customer-group rules, one `group=customer_group_id` per line. */
     public const XML_PATH_GROUP_MAP = 'dmlab_customer_sso/general/group_customer_group_map';
 
+    /** Whether customer logout also ends the IdP session (OIDC RP-Initiated Logout). */
+    public const XML_PATH_IDP_LOGOUT = 'dmlab_customer_sso/general/idp_logout';
+
     /** Adopt a matching customer by email only when the IdP verified the email (default). */
     public const AUTO_LINK_REQUIRE_VERIFICATION = 'require_verification';
 
@@ -174,6 +177,20 @@ class Config
         }
 
         return $map;
+    }
+
+    /**
+     * Whether customer logout redirects to the IdP's end-session endpoint.
+     *
+     * @param int|string|null $storeId
+     */
+    public function isIdpLogoutEnabled($storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_IDP_LOGOUT,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
     }
 
     /**

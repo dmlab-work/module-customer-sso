@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace DmLab\CustomerSso\Test\Unit\Model;
 
 use DmLab\CustomerSso\Model\CustomerSessionCreator;
+use DmLab\CustomerSso\Model\Session\IdpSessionStorage;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Model\Session;
 use Magento\Framework\Stdlib\Cookie\CookieMetadata;
@@ -39,10 +40,16 @@ class CustomerSessionCreatorTest extends TestCase
         $this->cookieMetadataFactory = $this->createMock(CookieMetadataFactory::class);
         $this->cookieMetadataFactory->method('createPublicCookieMetadata')
             ->willReturnCallback(static fn (): PublicCookieMetadata => new PublicCookieMetadata());
-        $this->creator = new CustomerSessionCreator(
+        $this->creator = $this->creator($this->createStub(IdpSessionStorage::class));
+    }
+
+    private function creator(IdpSessionStorage $idpSessionStorage): CustomerSessionCreator
+    {
+        return new CustomerSessionCreator(
             $this->customerSession,
             $this->cookieManager,
-            $this->cookieMetadataFactory
+            $this->cookieMetadataFactory,
+            $idpSessionStorage
         );
     }
 
@@ -54,8 +61,35 @@ class CustomerSessionCreatorTest extends TestCase
         $this->customerSession->expects(self::once())
             ->method('setCustomerDataAsLoggedIn')
             ->with($customer);
+        $idpSessionStorage = $this->createMock(IdpSessionStorage::class);
+        $idpSessionStorage->expects(self::never())->method('save');
 
-        $this->creator->create($customer);
+        $this->creator($idpSessionStorage)->create($customer);
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testKeepsIdTokenAfterLogin(): void
+    {
+        $order = [];
+        $this->customerSession->method('setCustomerDataAsLoggedIn')->willReturnCallback(
+            function () use (&$order) {
+                $order[] = 'login';
+                return $this->customerSession;
+            }
+        );
+        $idpSessionStorage = $this->createMock(IdpSessionStorage::class);
+        $idpSessionStorage->expects(self::once())
+            ->method('save')
+            ->with('raw-id-token', 'okta')
+            ->willReturnCallback(function () use (&$order): void {
+                $order[] = 'save';
+            });
+
+        $this->creator($idpSessionStorage)
+            ->create($this->createStub(CustomerInterface::class), 'raw-id-token', 'okta');
+
+        // Saved after login so the entry is bound to the signed-in customer.
+        self::assertSame(['login', 'save'], $order);
     }
 
     public function testDeletesPrivateContentCookieWhenPresent(): void

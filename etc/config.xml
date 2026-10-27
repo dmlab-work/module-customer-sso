@@ -13,6 +13,7 @@
                 <enabled>0</enabled>
                 <allow_password_login>1</allow_password_login>
                 <auto_link_policy>require_verification</auto_link_policy>
+                <idp_logout>0</idp_logout>
             </general>
         </dmlab_customer_sso>
     </default>

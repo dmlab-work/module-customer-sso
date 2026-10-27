@@ -79,6 +79,23 @@ class CallbackHandler
      */
     public function handle(string $code, string $state, ?string $iss = null): IdentityInterface
     {
+        return $this->complete($code, $state, $iss)->getIdentity();
+    }
+
+    /**
+     * Complete the OIDC callback; like {@see handle()}, but also returns the raw ID token and provider code.
+     *
+     * @param string $code
+     * @param string $state
+     * @param string|null $iss
+     * @throws LocalizedException
+     * @throws \DmLab\SsoCore\Exception\DiscoveryException
+     * @throws \DmLab\SsoCore\Exception\AuthorizationResponseException
+     * @throws \DmLab\SsoCore\Exception\TokenException
+     * @throws \DmLab\SsoCore\Exception\IdTokenValidationException
+     */
+    public function complete(string $code, string $state, ?string $iss = null): CallbackResult
+    {
         if (!$this->config->isEnabled()) {
             throw new LocalizedException(__('Customer SSO is disabled.'));
         }
@@ -128,7 +145,11 @@ class CallbackHandler
             $authState->getNonce()
         );
 
-        return $this->identityFactory->create($claims, $preset);
+        return new CallbackResult(
+            $this->identityFactory->create($claims, $preset),
+            $tokenResponse->getIdToken(),
+            $preset->getCode()
+        );
     }
 
     /**

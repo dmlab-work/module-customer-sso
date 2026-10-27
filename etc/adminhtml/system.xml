@@ -78,6 +78,17 @@
                         <field id="enabled">1</field>
                     </depends>
                 </field>
+                <field id="idp_logout" translate="label comment" type="select" sortOrder="80"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Sign Out of IdP on Logout</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[Customer logout also ends the IdP session (all apps signed in through it) when
+                        the IdP advertises <code>end_session_endpoint</code>. Register
+                        <code>customer/account/logoutSuccess</code> as a post-logout redirect URI at the IdP.]]></comment>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
             </group>
         </section>
     </system>

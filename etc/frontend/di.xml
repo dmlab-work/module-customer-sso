@@ -15,6 +15,10 @@
         <plugin name="dmlab_customer_sso_hide_password_login"
                 type="DmLab\CustomerSso\Plugin\HidePasswordLoginForm"/>
     </type>
+    <!-- Optional OIDC RP-Initiated Logout after the core customer logout. -->
+    <type name="Magento\Customer\Controller\Account\Logout">
+        <plugin name="dmlab_customer_sso_idp_logout" type="DmLab\CustomerSso\Plugin\Customer\IdpLogout"/>
+    </type>
     <!-- SSO button in the Luma checkout login popups (minicart popup and checkout authentication step). -->
     <virtualType name="DmLab\CustomerSso\Block\Checkout\PopupSsoButtonProcessor"
                  type="DmLab\CustomerSso\Block\Checkout\SsoButtonProcessor">

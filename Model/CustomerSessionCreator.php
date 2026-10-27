@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace DmLab\CustomerSso\Model;
 
+use DmLab\CustomerSso\Model\Session\IdpSessionStorage;
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Model\Session;
 use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
@@ -50,11 +51,13 @@ class CustomerSessionCreator
      * @param Session $customerSession
      * @param CookieManagerInterface $cookieManager
      * @param CookieMetadataFactory $cookieMetadataFactory
+     * @param IdpSessionStorage $idpSessionStorage
      */
     public function __construct(
         private readonly Session $customerSession,
         private readonly CookieManagerInterface $cookieManager,
-        private readonly CookieMetadataFactory $cookieMetadataFactory
+        private readonly CookieMetadataFactory $cookieMetadataFactory,
+        private readonly IdpSessionStorage $idpSessionStorage
     ) {
     }
 
@@ -66,10 +69,15 @@ class CustomerSessionCreator
      * sections has no `section_data_ids` to invalidate.
      *
      * @param CustomerInterface $customer persisted customer to authenticate
+     * @param string $idToken raw ID token, kept for IdP logout; empty keeps none
+     * @param string $providerCode provider preset that issued the ID token
      */
-    public function create(CustomerInterface $customer): void
+    public function create(CustomerInterface $customer, string $idToken = '', string $providerCode = ''): void
     {
         $this->customerSession->setCustomerDataAsLoggedIn($customer);
+        if ($idToken !== '') {
+            $this->idpSessionStorage->save($idToken, $providerCode);
+        }
 
         if ($this->cookieManager->getCookie(self::PRIVATE_CONTENT_COOKIE)) {
             $metadata = $this->cookieMetadataFactory->createCookieMetadata();

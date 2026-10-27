@@ -13,6 +13,7 @@ use DmLab\CustomerSso\Model\CustomerSessionCreator;
 use DmLab\CustomerSso\Model\GroupAssigner;
 use DmLab\CustomerSso\Model\IdentityLinker;
 use DmLab\CustomerSso\Model\Oidc\CallbackHandler;
+use DmLab\CustomerSso\Model\Oidc\CallbackResult;
 use DmLab\CustomerSso\Model\Session\SsoIntentStorage;
 use DmLab\CustomerSso\Model\SsoIntent;
 use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
@@ -130,10 +131,12 @@ class CallbackTest extends TestCase
         $identity = new Identity('user-1', 'user@example.com', 'User One', []);
         $customer = $this->createStub(CustomerInterface::class);
 
-        $this->handler->expects(self::once())->method('handle')->with('the-code', 'the-state')->willReturn($identity);
+        $this->handler->expects(self::once())->method('complete')->with('the-code', 'the-state')
+            ->willReturn(new CallbackResult($identity, 'the-id-token', 'okta'));
         $this->provisioner->expects(self::once())->method('provision')->willReturn($customer);
         $this->groupAssigner->expects(self::once())->method('assign')->willReturn($customer);
-        $this->sessionCreator->expects(self::once())->method('create')->with($customer);
+        // The raw ID token reaches the session creator for IdP logout.
+        $this->sessionCreator->expects(self::once())->method('create')->with($customer, 'the-id-token', 'okta');
         $this->identityLinker->expects(self::never())->method('link');
         $this->messageManager->expects(self::never())->method('addErrorMessage');
         $this->logger->expects(self::never())->method('critical');
@@ -178,7 +181,8 @@ class CallbackTest extends TestCase
     public function testRefusesLoginWhenAlreadySignedIn(): void
     {
         $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
-        $this->handler->expects(self::once())->method('handle')->willReturn(new Identity('user-1'));
+        $this->handler->expects(self::once())->method('complete')
+            ->willReturn(new CallbackResult(new Identity('user-1')));
         $this->customerSession->method('isLoggedIn')->willReturn(true);
         $this->expectNoProvisioning();
         $this->identityLinker->expects(self::never())->method('link');
@@ -195,9 +199,9 @@ class CallbackTest extends TestCase
         $this->withParams(['code' => 'the-code', 'state' => 'the-state', 'iss' => 'https://idp.example']);
         $customer = $this->createStub(CustomerInterface::class);
         $this->handler->expects(self::once())
-            ->method('handle')
+            ->method('complete')
             ->with('the-code', 'the-state', 'https://idp.example')
-            ->willReturn(new Identity('user-1'));
+            ->willReturn(new CallbackResult(new Identity('user-1')));
         $this->provisioner->expects(self::once())->method('provision')->willReturn($customer);
         $this->groupAssigner->expects(self::once())->method('assign')->willReturn($customer);
         $this->sessionCreator->expects(self::once())->method('create')->with($customer);
@@ -219,7 +223,8 @@ class CallbackTest extends TestCase
         ?Escaper $escaper = null
     ): Redirect {
         $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
-        $this->handler->expects(self::once())->method('handle')->with('the-code', 'the-state')->willReturn($identity);
+        $this->handler->expects(self::once())->method('complete')->with('the-code', 'the-state')
+            ->willReturn(new CallbackResult($identity));
         $this->customerSession->method('isLoggedIn')->willReturn($loggedIn);
         $this->customerSession->method('getCustomerId')->willReturn($sessionCustomerId);
 
@@ -314,7 +319,7 @@ class CallbackTest extends TestCase
         $this->expectLoginRedirect();
         $this->expectNoProvisioning();
 
-        $this->handler->expects(self::once())->method('handle')->willThrowException(
+        $this->handler->expects(self::once())->method('complete')->willThrowException(
             new LocalizedException(__('The SSO sign-in session is invalid or has expired. Please try again.'))
         );
         $intentStorage = $this->createMock(SsoIntentStorage::class);
@@ -330,7 +335,7 @@ class CallbackTest extends TestCase
     {
         $this->withParams(['error' => 'access_denied', 'state' => 'the-state']);
         $this->expectNoProvisioning();
-        $this->handler->expects(self::never())->method('handle');
+        $this->handler->expects(self::never())->method('complete');
         $this->identityLinker->expects(self::never())->method('link');
         $this->messageManager->expects(self::once())
             ->method('addErrorMessage')
@@ -355,7 +360,7 @@ class CallbackTest extends TestCase
         $this->withParams(['code' => 'the-code', 'state' => 'the-state']);
         $this->expectNoProvisioning();
         $error = new \RuntimeException('token endpoint down');
-        $this->handler->expects(self::once())->method('handle')->willThrowException($error);
+        $this->handler->expects(self::once())->method('complete')->willThrowException($error);
         $this->identityLinker->expects(self::never())->method('link');
         $this->logger->expects(self::once())->method('critical')->with($error);
         $this->messageManager->expects(self::once())->method('addErrorMessage');
@@ -381,7 +386,7 @@ class CallbackTest extends TestCase
         $intentStorage->expects(self::never())->method('consume');
         $this->stateStorage = $this->createMock(AuthorizationStateStorageInterface::class);
         $this->stateStorage->expects(self::never())->method('consume');
-        $this->handler->expects(self::never())->method('handle');
+        $this->handler->expects(self::never())->method('complete');
         $this->logger->expects(self::never())->method('critical');
         $this->messageManager->expects(self::once())
             ->method('addErrorMessage')
@@ -429,9 +434,9 @@ class CallbackTest extends TestCase
         $groupedCustomer = $this->createStub(CustomerInterface::class);
 
         $this->handler->expects(self::once())
-            ->method('handle')
+            ->method('complete')
             ->with('the-code', 'the-state')
-            ->willReturn($identity);
+            ->willReturn(new CallbackResult($identity));
         $this->provisioner->expects(self::once())
             ->method('provision')
             ->with($identity)
@@ -458,8 +463,8 @@ class CallbackTest extends TestCase
         $this->expectLoginRedirect();
 
         $this->handler->expects(self::once())
-            ->method('handle')
-            ->willReturn(new Identity('user-1', null, null, []));
+            ->method('complete')
+            ->willReturn(new CallbackResult(new Identity('user-1', null, null, [])));
         $this->provisioner->expects(self::once())
             ->method('provision')
             ->willThrowException(new LocalizedException(
@@ -496,8 +501,8 @@ class CallbackTest extends TestCase
         $this->expectLoginRedirect();
 
         $this->handler->expects(self::once())
-            ->method('handle')
-            ->willReturn(new Identity('user-1', null, null, []));
+            ->method('complete')
+            ->willReturn(new CallbackResult(new Identity('user-1', null, null, [])));
         $this->provisioner->expects(self::once())
             ->method('provision')
             ->willThrowException(new LocalizedException(__($payload)));
@@ -519,7 +524,7 @@ class CallbackTest extends TestCase
         $this->expectLoginRedirect();
         $this->expectNoProvisioning();
 
-        $this->handler->expects(self::never())->method('handle');
+        $this->handler->expects(self::never())->method('complete');
         $this->logger->expects(self::never())->method('critical');
         $this->messageManager->expects(self::once())
             ->method('addErrorMessage')
@@ -547,7 +552,7 @@ class CallbackTest extends TestCase
         $this->expectLoginRedirect();
         $this->expectNoProvisioning();
 
-        $this->handler->expects(self::never())->method('handle');
+        $this->handler->expects(self::never())->method('complete');
         $this->logger->expects(self::never())->method('critical');
         $this->messageManager->expects(self::once())
             ->method('addErrorMessage')
@@ -562,7 +567,7 @@ class CallbackTest extends TestCase
         $this->expectLoginRedirect();
         $this->expectNoProvisioning();
 
-        $this->handler->expects(self::never())->method('handle');
+        $this->handler->expects(self::never())->method('complete');
         $this->logger->expects(self::never())->method('critical');
         $this->messageManager->expects(self::once())
             ->method('addErrorMessage')
@@ -577,7 +582,7 @@ class CallbackTest extends TestCase
         $this->expectLoginRedirect();
         $this->expectNoProvisioning();
 
-        $this->handler->expects(self::never())->method('handle');
+        $this->handler->expects(self::never())->method('complete');
         $this->logger->expects(self::never())->method('critical');
         $this->messageManager->expects(self::once())
             ->method('addErrorMessage')
@@ -593,7 +598,7 @@ class CallbackTest extends TestCase
         $this->expectNoProvisioning();
 
         $this->handler->expects(self::once())
-            ->method('handle')
+            ->method('complete')
             ->willThrowException(new LocalizedException(
                 __('The SSO sign-in session is invalid or has expired. Please try again.')
             ));
@@ -613,7 +618,7 @@ class CallbackTest extends TestCase
         $this->expectNoProvisioning();
 
         $error = new \RuntimeException('token endpoint down');
-        $this->handler->expects(self::once())->method('handle')->willThrowException($error);
+        $this->handler->expects(self::once())->method('complete')->willThrowException($error);
 
         $this->logger->expects(self::once())->method('critical')->with($error);
         $this->messageManager->expects(self::once())

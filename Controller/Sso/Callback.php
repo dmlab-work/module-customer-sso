@@ -105,7 +105,8 @@ class Callback implements HttpGetActionInterface
         }
 
         try {
-            $identity = $this->callbackHandler->handle($code, $state, $this->issParam());
+            $result = $this->callbackHandler->complete($code, $state, $this->issParam());
+            $identity = $result->getIdentity();
             $intent = $this->intentStorage->consume($state) ?? new SsoIntent(SsoIntent::MODE_LOGIN);
             if ($intent->isLink()) {
                 return $this->linkIdentity($intent, $identity);
@@ -119,7 +120,7 @@ class Callback implements HttpGetActionInterface
             }
             $customer = $this->customerProvisioner->provision($identity);
             $customer = $this->groupAssigner->assign($customer, $identity);
-            $this->customerSessionCreator->create($customer);
+            $this->customerSessionCreator->create($customer, $result->getIdToken(), $result->getProviderCode());
         } catch (LocalizedException $e) {
             // Storefront session messages render as raw HTML. This module's own
             // exceptions carry safe static text, but repository/validation exceptions

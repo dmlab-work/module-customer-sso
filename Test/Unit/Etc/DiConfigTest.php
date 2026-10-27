@@ -9,6 +9,7 @@ namespace DmLab\CustomerSso\Test\Unit\Etc;
 
 use DmLab\CustomerSso\Block\Checkout\SsoButtonProcessor;
 use DmLab\CustomerSso\Plugin\Customer\EnforceSso;
+use DmLab\CustomerSso\Plugin\Customer\IdpLogout;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -78,5 +79,21 @@ class DiConfigTest extends TestCase
         ));
         self::assertCount(1, $virtualTypes);
         self::assertSame($childrenPath, trim((string)$virtualTypes[0]));
+    }
+
+    public function testIdpLogoutIsOffByDefaultAndPluginsCustomerLogout(): void
+    {
+        $config = simplexml_load_file(dirname(__DIR__, 3) . '/etc/config.xml');
+        self::assertNotFalse($config);
+        self::assertSame('0', trim((string)$config->default->dmlab_customer_sso->general->idp_logout));
+
+        $xml = simplexml_load_file(dirname(__DIR__, 3) . '/etc/frontend/di.xml');
+        self::assertNotFalse($xml);
+        $plugins = $xml->xpath(
+            '/config/type[@name="Magento\Customer\Controller\Account\Logout"]'
+            . '/plugin[@name="dmlab_customer_sso_idp_logout"]'
+        );
+        self::assertCount(1, $plugins);
+        self::assertSame(IdpLogout::class, (string)$plugins[0]['type']);
     }
 }
