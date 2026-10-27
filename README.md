@@ -75,7 +75,7 @@ wholesale=2
 vip=3
 ```
 
-With no rules configured this is inert: customer groups are never touched, so a store using SSO only for login keeps its manually assigned groups. Once a map exists, groups are resolved on JIT create and refreshed on every login, so IdP group changes take effect at next sign-in. An identity whose groups match no rule reverts to the store's default customer group (`GroupManagementInterface::getDefaultGroup`) — customers always hold a valid group. A rule pointing at a non-existent group id is skipped, leaving the current group unchanged.
+With no rules configured this is inert: customer groups are never touched, so a store using SSO only for login keeps its manually assigned groups. Once a map exists, groups are resolved on JIT create and refreshed on every login, so IdP group changes take effect at next sign-in. An identity whose groups match no rule reverts to the store's default customer group (`GroupManagementInterface::getDefaultGroup`) — customers always hold a valid group. A rule pointing at a non-existent group id is skipped, leaving the current group unchanged. When the IdP marks the groups claim as distributed (groups overage, e.g. Entra `_claim_names`), the token's groups are incomplete and the current group is left unchanged.
 
 ## Hyvä
 

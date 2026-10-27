@@ -34,6 +34,9 @@ use Magento\Store\Model\StoreManagerInterface;
  * stripped to deny), a customer always has a valid group, so denial means the
  * store's default, never none.
  *
+ * When the IdP signals its groups claim is distributed (overage), the groups on the
+ * token are incomplete and the customer keeps their current group.
+ *
  * A resolved group id that is not a real, positive customer-group id (a typo'd or
  * non-numeric map entry) is not assigned — the customer keeps their current group
  * rather than being moved onto a broken one or downgraded to "NOT LOGGED IN".
@@ -79,6 +82,11 @@ class GroupAssigner
         // No group governance configured: leave the customer's group untouched rather
         // than resetting an admin-assigned group to the store default on every login.
         if ($rules === []) {
+            return $customer;
+        }
+        // Groups overage (e.g. Entra `_claim_names`): the list is incomplete, so a miss
+        // must not demote the customer to the default group.
+        if ($identity->hasDistributedGroups()) {
             return $customer;
         }
 

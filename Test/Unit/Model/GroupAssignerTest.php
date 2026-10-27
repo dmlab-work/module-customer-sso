@@ -149,6 +149,24 @@ class GroupAssignerTest extends TestCase
         $this->assigner->assign($customer, new Identity('sub', 'u@example.com', 'U', ['engineering']));
     }
 
+    public function testKeepsCurrentGroupWhenGroupsClaimIsDistributed(): void
+    {
+        // Groups overage: the token's groups are incomplete, so no match must not demote.
+        $this->withRules(['vip' => '5']);
+        $customer = $this->customer('5');
+
+        $customer->expects(self::never())->method('setGroupId');
+        $this->customerRepository->expects(self::never())->method('save');
+
+        self::assertSame(
+            $customer,
+            $this->assigner->assign(
+                $customer,
+                new Identity('sub', 'u@example.com', 'U', [], true, 'https://iss', ['groups'], true)
+            )
+        );
+    }
+
     public function testNoOpWhenNoGroupMapConfigured(): void
     {
         // No group governance configured: a customer an admin manually placed on a
