@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3
+
+- Fixed: `setup:upgrade` from 0.2.1 kept the old `(provider_code, subject_id)` unique index, so the issuer and per-website links of 0.2.2 still collided. Run `setup:upgrade`.
+
 ## 0.2.2
 
 - Requires `dmlab/module-sso-core ^0.2.2`; the callback verifies the RFC 9207 `iss` response parameter and the issuer the sign-in started with, and authenticates at the token endpoint per discovered methods (default `client_secret_basic`).
