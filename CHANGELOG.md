@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.2
+
+- Requires `dmlab/module-sso-core ^0.2.2`; the callback verifies the RFC 9207 `iss` response parameter and the issuer the sign-in started with, and authenticates at the token endpoint per discovered methods (default `client_secret_basic`).
+- **Identity links are keyed by issuer + subject** (`issuer` column): two IdPs under one provider code (e.g. two Okta orgs) no longer share a namespace. Existing links adopt the issuer on their next matching login.
+- **Per-website customer accounts can each link the same IdP identity** (`website_id` column, backfilled by a data patch).
+- **"Keep Password Login = No" is enforced server-side**: login form, checkout popup, REST `integration/customer/token` and GraphQL `generateCustomerToken` refuse passwords once SSO is live.
+- Groups overage (distributed groups claim) leaves the customer group unchanged.
+- Group map: the first matching line wins; a duplicate group keeps its first line.
+- SSO login is refused while a customer is already signed in; email adoption is refused for an account awaiting email confirmation.
+- Pending sign-in states and intents expire after 10 minutes, at most 10 per session (sign-ins in flight during the upgrade must be restarted).
+- Upgrade: run `setup:upgrade` (schema change + data patch).
+
 ## 0.2.1
 
 - Fixed: guests opening My Account → Single Sign-On got HTTP 500 instead of the login redirect.
