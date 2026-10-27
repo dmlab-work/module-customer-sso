@@ -3,12 +3,15 @@
         "column": {
             "customer_id": true,
             "provider_code": true,
+            "issuer": true,
             "subject_id": true,
+            "website_id": true,
             "created_at": true
         },
         "constraint": {
             "PRIMARY": true,
             "DMLAB_CUSTOMER_SSO_SUBJECT_ID": true,
+            "DMLAB_CUSTOMER_SSO_SUBJECT_IDENTITY": true,
             "DMLAB_CUSTOMER_SSO_SUBJECT_CUSTOMER_ID": true
         }
     }

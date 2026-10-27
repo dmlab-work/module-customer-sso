@@ -28,6 +28,8 @@ class CustomerProvisionerTest extends TestCase
     private const EMAIL_EXISTS_MESSAGE = 'An account with this email address already exists. Sign in with your '
         . 'password, then link single sign-on under My Account → Single Sign-On.';
 
+    private const ISSUER = 'https://org1.okta.com';
+
     /** @var CustomerInterfaceFactory&MockObject */
     private $customerFactory;
 
@@ -159,9 +161,9 @@ class CustomerProvisionerTest extends TestCase
             ->method('save')
             ->with($customer)
             ->willReturn($this->savedCustomer(42));
-        $this->subjectLink->expects(self::once())->method('link')->with(42, 'okta', 'sub-1');
+        $this->subjectLink->expects(self::once())->method('link')->with(42, 'okta', self::ISSUER, 'sub-1');
 
-        $identity = new Identity('sub-1', 'Jane.Doe@Example.com', 'Jane Doe', ['shoppers'], true);
+        $identity = new Identity('sub-1', 'Jane.Doe@Example.com', 'Jane Doe', ['shoppers'], true, self::ISSUER);
 
         $result = $this->provisioner->provision($identity);
 
@@ -269,7 +271,9 @@ class CustomerProvisionerTest extends TestCase
     {
         $existing = $this->savedCustomer(55);
 
-        $this->subjectLink->method('findCustomerIdBySubject')->with('okta', 'sub-1')->willReturn(55);
+        $this->subjectLink->method('findCustomerIdBySubject')
+            ->with('okta', self::ISSUER, 'sub-1', null)
+            ->willReturn(55);
         $this->subjectLink->expects(self::never())->method('link');
         $this->customerRepository->expects(self::once())->method('getById')->with(55)->willReturn($existing);
         $this->customerRepository->expects(self::never())->method('save');
@@ -277,7 +281,27 @@ class CustomerProvisionerTest extends TestCase
 
         self::assertSame(
             $existing,
-            $this->provisioner->provision(new Identity('sub-1', 'jane@example.com', 'Jane', [], false))
+            $this->provisioner->provision(new Identity('sub-1', 'jane@example.com', 'Jane', [], false, self::ISSUER))
+        );
+    }
+
+    public function testSubjectLookupIsScopedToCurrentWebsiteUnderWebsiteScope(): void
+    {
+        $this->shareConfig->method('isWebsiteScope')->willReturn(true);
+        $existing = $this->createStub(CustomerInterface::class);
+        $existing->method('getWebsiteId')->willReturn(1);
+
+        $this->subjectLink->expects(self::once())->method('findCustomerIdBySubject')
+            ->with('okta', self::ISSUER, 'sub-1', 1)
+            ->willReturn(55);
+        $this->subjectLink->expects(self::never())->method('link');
+        $this->customerRepository->method('getById')->willReturn($existing);
+        $this->customerRepository->expects(self::never())->method('save');
+        $this->customerFactory->expects(self::never())->method('create');
+
+        self::assertSame(
+            $existing,
+            $this->provisioner->provision(new Identity('sub-1', 'jane@example.com', 'Jane', [], true, self::ISSUER))
         );
     }
 
@@ -351,7 +375,7 @@ class CustomerProvisionerTest extends TestCase
             ->method('get')->with('jane@example.com', 1)->willReturn($existing);
         $this->customerRepository->expects(self::never())->method('save');
         $this->customerFactory->expects(self::never())->method('create');
-        $this->subjectLink->expects(self::once())->method('link')->with(7, 'okta', 'sub-new');
+        $this->subjectLink->expects(self::once())->method('link')->with(7, 'okta', '', 'sub-new');
 
         self::assertSame(
             $existing,
@@ -373,7 +397,7 @@ class CustomerProvisionerTest extends TestCase
             ->method('get')->with('jane@example.com', 1)->willReturn($existing);
         $this->customerRepository->expects(self::never())->method('save');
         $this->customerFactory->expects(self::never())->method('create');
-        $this->subjectLink->expects(self::once())->method('link')->with(7, 'okta', 'sub-new');
+        $this->subjectLink->expects(self::once())->method('link')->with(7, 'okta', '', 'sub-new');
 
         self::assertSame(
             $existing,
@@ -419,7 +443,7 @@ class CustomerProvisionerTest extends TestCase
         $this->provisioner->provision(new Identity('sub-new', 'jane@example.com', 'Jane', [], true));
     }
 
-    public function testBlocksEmailLinkWhenAccountBoundToDifferentSubject(): void
+    public function testBlocksEmailLinkWhenAccountBoundToAnotherIdentity(): void
     {
         $existing = $this->savedCustomer(7);
 
@@ -451,7 +475,7 @@ class CustomerProvisionerTest extends TestCase
 
         $this->customerRepository->expects(self::once())->method('get')->willReturn($existing);
         $this->customerFactory->expects(self::never())->method('create');
-        $this->subjectLink->expects(self::once())->method('link')->with(7, 'okta', 'sub-new');
+        $this->subjectLink->expects(self::once())->method('link')->with(7, 'okta', '', 'sub-new');
 
         self::assertSame(
             $existing,

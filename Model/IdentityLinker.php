@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace DmLab\CustomerSso\Model;
 
 use DmLab\SsoCore\Api\Data\IdentityInterface;
+use Magento\Customer\Model\Config\Share;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Store\Model\StoreManagerInterface;
 
@@ -23,11 +24,13 @@ class IdentityLinker
      * @param SubjectLink $subjectLink
      * @param ActiveProviderResolver $activeProviderResolver
      * @param StoreManagerInterface $storeManager
+     * @param Share $shareConfig
      */
     public function __construct(
         private readonly SubjectLink $subjectLink,
         private readonly ActiveProviderResolver $activeProviderResolver,
-        private readonly StoreManagerInterface $storeManager
+        private readonly StoreManagerInterface $storeManager,
+        private readonly Share $shareConfig
     ) {
     }
 
@@ -41,15 +44,19 @@ class IdentityLinker
      */
     public function link(int $customerId, IdentityInterface $identity): void
     {
-        $providerCode = (string)$this->activeProviderResolver->getActiveCode(
-            (int)$this->storeManager->getStore()->getId()
-        );
+        $store = $this->storeManager->getStore();
+        $providerCode = (string)$this->activeProviderResolver->getActiveCode((int)$store->getId());
         if ($providerCode === '') {
             throw new LocalizedException(__('Single sign-on is not configured for this store.'));
         }
 
         $subjectId = $identity->getSubjectId();
-        $ownerId = $this->subjectLink->findCustomerIdBySubject($providerCode, $subjectId);
+        $ownerId = $this->subjectLink->findCustomerIdBySubject(
+            $providerCode,
+            $identity->getIssuer(),
+            $subjectId,
+            $this->shareConfig->isWebsiteScope() ? (int)$store->getWebsiteId() : null
+        );
         if ($ownerId === $customerId) {
             return;
         }
@@ -63,6 +70,6 @@ class IdentityLinker
             );
         }
 
-        $this->subjectLink->link($customerId, $providerCode, $subjectId);
+        $this->subjectLink->link($customerId, $providerCode, $identity->getIssuer(), $subjectId);
     }
 }

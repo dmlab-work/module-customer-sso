@@ -91,6 +91,9 @@ class EndToEndTest extends TestCase
     /** Subject the stub IdP releases; the stable re-login key. */
     private const SUBJECT = 'idp-subject-1';
 
+    /** Subject-link key: provider code, issuer, subject. */
+    private const LINK_KEY = 'stub|https://idp.example.com|' . self::SUBJECT;
+
     /** Email the stub IdP releases. */
     private const EMAIL = 'shopper@example.com';
 
@@ -316,7 +319,7 @@ class EndToEndTest extends TestCase
             $provisioner,
             $groupAssigner,
             $sessionCreator,
-            new IdentityLinker($subjectLink, $resolver, $storeManager),
+            new IdentityLinker($subjectLink, $resolver, $storeManager, $this->createStub(Share::class)),
             $this->session,
             $this->redirectFactory($this->callbackRedirect),
             $this->callbackMessages,
@@ -342,8 +345,8 @@ class EndToEndTest extends TestCase
 
         $this->runCallback('auth-code', $state, 'customer/account');
 
-        // The subject is now linked to the JIT customer (provider-scoped) for stable re-login.
-        self::assertSame(self::NEW_CUSTOMER_ID, $this->subjectLinks['stub|' . self::SUBJECT] ?? null);
+        // The identity is now linked to the JIT customer (provider + issuer scoped) for stable re-login.
+        self::assertSame(self::NEW_CUSTOMER_ID, $this->subjectLinks[self::LINK_KEY] ?? null);
     }
 
     public function testOwnOriginRefererIsTheLandingUrlAfterLogin(): void
@@ -438,7 +441,7 @@ class EndToEndTest extends TestCase
 
         $this->runCallback('auth-code', $state, 'customer/account');
 
-        self::assertSame(self::EXISTING_CUSTOMER_ID, $this->subjectLinks['stub|' . self::SUBJECT] ?? null);
+        self::assertSame(self::EXISTING_CUSTOMER_ID, $this->subjectLinks[self::LINK_KEY] ?? null);
     }
 
     public function testEmailMatchNotLinkedWhenEmailUnverified(): void
@@ -453,7 +456,7 @@ class EndToEndTest extends TestCase
 
         $this->runCallback('auth-code', $state, 'customer/account/login');
 
-        self::assertArrayNotHasKey('stub|' . self::SUBJECT, $this->subjectLinks);
+        self::assertArrayNotHasKey(self::LINK_KEY, $this->subjectLinks);
     }
 
     public function testButtonHiddenWhenModuleDisabled(): void
@@ -566,12 +569,13 @@ class EndToEndTest extends TestCase
         $link = $this->createMock(SubjectLink::class);
         $link->method('findCustomerIdBySubject')
             ->willReturnCallback(
-                fn(string $provider, string $subject): ?int => $this->subjectLinks[$provider . '|' . $subject] ?? null
+                fn(string $provider, string $issuer, string $subject): ?int
+                    => $this->subjectLinks[$provider . '|' . $issuer . '|' . $subject] ?? null
             );
         $link->method('getSubjectForProvider')->willReturnCallback(
             function (int $customerId, string $provider): ?string {
                 foreach ($this->subjectLinks as $key => $linkedId) {
-                    [$linkedProvider, $subject] = explode('|', (string)$key, 2);
+                    [$linkedProvider, , $subject] = explode('|', (string)$key, 3);
                     if ($linkedId === $customerId && $linkedProvider === $provider) {
                         return $subject;
                     }
@@ -581,8 +585,8 @@ class EndToEndTest extends TestCase
             }
         );
         $link->method('link')->willReturnCallback(
-            function (int $customerId, string $provider, string $subject): void {
-                $this->subjectLinks[$provider . '|' . $subject] = $customerId;
+            function (int $customerId, string $provider, string $issuer, string $subject): void {
+                $this->subjectLinks[$provider . '|' . $issuer . '|' . $subject] = $customerId;
             }
         );
 

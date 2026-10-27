@@ -11,6 +11,7 @@ use DmLab\CustomerSso\Model\ActiveProviderResolver;
 use DmLab\CustomerSso\Model\IdentityLinker;
 use DmLab\CustomerSso\Model\SubjectLink;
 use DmLab\SsoCore\Model\Data\Identity;
+use Magento\Customer\Model\Config\Share;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
@@ -27,6 +28,9 @@ class IdentityLinkerTest extends TestCase
     /** @var ActiveProviderResolver&MockObject */
     private $resolver;
 
+    /** @var Share&\PHPUnit\Framework\MockObject\Stub */
+    private $shareConfig;
+
     /** @var IdentityLinker */
     private IdentityLinker $linker;
 
@@ -37,10 +41,12 @@ class IdentityLinkerTest extends TestCase
 
         $store = $this->createStub(StoreInterface::class);
         $store->method('getId')->willReturn(3);
+        $store->method('getWebsiteId')->willReturn(2);
         $storeManager = $this->createStub(StoreManagerInterface::class);
         $storeManager->method('getStore')->willReturn($store);
+        $this->shareConfig = $this->createStub(Share::class);
 
-        $this->linker = new IdentityLinker($this->subjectLink, $this->resolver, $storeManager);
+        $this->linker = new IdentityLinker($this->subjectLink, $this->resolver, $storeManager, $this->shareConfig);
     }
 
     private function withProvider(?string $code): void
@@ -51,11 +57,26 @@ class IdentityLinkerTest extends TestCase
     public function testLinksNewIdentityUnderActiveProvider(): void
     {
         $this->withProvider('okta');
-        $this->subjectLink->method('findCustomerIdBySubject')->with('okta', 'sub-1')->willReturn(null);
+        $this->subjectLink->method('findCustomerIdBySubject')->with('okta', 'https://iss', 'sub-1', null)
+            ->willReturn(null);
         $this->subjectLink->method('getSubjectForProvider')->with(self::CUSTOMER_ID, 'okta')->willReturn(null);
-        $this->subjectLink->expects(self::once())->method('link')->with(self::CUSTOMER_ID, 'okta', 'sub-1');
+        $this->subjectLink->expects(self::once())->method('link')
+            ->with(self::CUSTOMER_ID, 'okta', 'https://iss', 'sub-1');
 
-        $this->linker->link(self::CUSTOMER_ID, new Identity('sub-1', 'a@example.com', null, [], true));
+        $this->linker->link(self::CUSTOMER_ID, new Identity('sub-1', 'a@example.com', null, [], true, 'https://iss'));
+    }
+
+    public function testOwnerLookupIsScopedToCurrentWebsiteUnderWebsiteScope(): void
+    {
+        $this->shareConfig->method('isWebsiteScope')->willReturn(true);
+        $this->withProvider('okta');
+        $this->subjectLink->expects(self::once())->method('findCustomerIdBySubject')
+            ->with('okta', 'https://iss', 'sub-1', 2)
+            ->willReturn(null);
+        $this->subjectLink->method('getSubjectForProvider')->willReturn(null);
+        $this->subjectLink->expects(self::once())->method('link');
+
+        $this->linker->link(self::CUSTOMER_ID, new Identity('sub-1', null, null, [], false, 'https://iss'));
     }
 
     public function testLinksWhenEmailIsNotVerified(): void
@@ -63,7 +84,7 @@ class IdentityLinkerTest extends TestCase
         $this->withProvider('okta');
         $this->subjectLink->method('findCustomerIdBySubject')->willReturn(null);
         $this->subjectLink->method('getSubjectForProvider')->willReturn(null);
-        $this->subjectLink->expects(self::once())->method('link')->with(self::CUSTOMER_ID, 'okta', 'sub-1');
+        $this->subjectLink->expects(self::once())->method('link')->with(self::CUSTOMER_ID, 'okta', '', 'sub-1');
 
         $this->linker->link(self::CUSTOMER_ID, new Identity('sub-1', 'a@example.com', null, [], false));
     }
@@ -71,7 +92,7 @@ class IdentityLinkerTest extends TestCase
     public function testIsIdempotentForTheSamePair(): void
     {
         $this->withProvider('okta');
-        $this->subjectLink->method('findCustomerIdBySubject')->with('okta', 'sub-1')->willReturn(self::CUSTOMER_ID);
+        $this->subjectLink->method('findCustomerIdBySubject')->with('okta', '', 'sub-1')->willReturn(self::CUSTOMER_ID);
         $this->subjectLink->expects(self::never())->method('link');
 
         $this->linker->link(self::CUSTOMER_ID, new Identity('sub-1'));

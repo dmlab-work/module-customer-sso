@@ -12,7 +12,7 @@ use Magento\Framework\DB\Adapter\DuplicateException;
 use Magento\Framework\Exception\LocalizedException;
 
 /**
- * Storage for the IdP-subject → customer link (see etc/db_schema.xml).
+ * Storage for the IdP-identity → customer link (see etc/db_schema.xml).
  *
  * The subject (`sub`) is the stable re-login key: once a customer is linked, every
  * later SSO login resolves them by subject rather than by the mutable email. This
@@ -34,32 +34,55 @@ class SubjectLink
     }
 
     /**
-     * Customer id linked to the given IdP subject under the given provider, or null.
+     * Customer id linked to the given IdP identity under the given provider, or null.
      *
-     * Scoped by provider code because `sub` is only unique per issuer: a collision
-     * across providers must not resolve to another provider's customer.
+     * An identity is (provider code, issuer, subject): `sub` is only unique per issuer, and
+     * one provider code can serve several issuers (e.g. two Okta orgs on two websites). A
+     * link stored without an issuer is claimed by the first login that matches it otherwise.
      *
      * @param string $providerCode active SSO provider code
+     * @param string $issuer validated `iss` of the identity
      * @param string $subjectId
+     * @param int|null $websiteId restrict to links of customers on this website; null = any
      */
-    public function findCustomerIdBySubject(string $providerCode, string $subjectId): ?int
-    {
+    public function findCustomerIdBySubject(
+        string $providerCode,
+        string $issuer,
+        string $subjectId,
+        ?int $websiteId = null
+    ): ?int {
         if ($providerCode === '' || $subjectId === '') {
             return null;
         }
 
         $connection = $this->resource->getConnection();
+        $table = $this->resource->getTableName(self::TABLE);
         $select = $connection->select()
-            ->from($this->resource->getTableName(self::TABLE), 'customer_id')
+            ->from($table, ['customer_id', 'issuer'])
             ->where('provider_code = ?', $providerCode)
             ->where('subject_id = ?', $subjectId)
+            ->where('issuer IN (?)', array_values(array_unique([$issuer, ''])))
+            ->order('issuer DESC')
             ->limit(1);
+        if ($websiteId !== null) {
+            $select->where('website_id = ?', $websiteId);
+        }
 
-        $customerId = $connection->fetchOne($select);
+        $row = $connection->fetchRow($select);
+        if (!is_array($row) || empty($row['customer_id'])) {
+            return null;
+        }
 
-        return $customerId === false || $customerId === null || $customerId === ''
-            ? null
-            : (int)$customerId;
+        $customerId = (int)$row['customer_id'];
+        if ((string)$row['issuer'] === '' && $issuer !== '') {
+            $connection->update(
+                $table,
+                ['issuer' => $issuer],
+                ['customer_id = ?' => $customerId, 'provider_code = ?' => $providerCode, 'issuer = ?' => '']
+            );
+        }
+
+        return $customerId;
     }
 
     /**
@@ -117,24 +140,40 @@ class SubjectLink
     }
 
     /**
-     * Link a subject to a customer. Never overwrites an existing link.
+     * Link an IdP identity to a customer. Never overwrites an existing link.
+     *
+     * The link carries the customer's website so per-website accounts can each hold the identity.
      *
      * @param int $customerId
      * @param string $providerCode SSO provider code that issued the subject
+     * @param string $issuer validated `iss` of the identity
      * @param string $subjectId
      * @throws LocalizedException when the customer already holds an identity for the
      *         provider, or the identity belongs to another customer
      */
-    public function link(int $customerId, string $providerCode, string $subjectId): void
+    public function link(int $customerId, string $providerCode, string $issuer, string $subjectId): void
     {
         if ($customerId <= 0 || $providerCode === '' || $subjectId === '') {
             return;
         }
 
+        $connection = $this->resource->getConnection();
+        $websiteId = $connection->fetchOne(
+            $connection->select()
+                ->from($this->resource->getTableName('customer_entity'), 'website_id')
+                ->where('entity_id = ?', $customerId)
+        );
+
         try {
-            $this->resource->getConnection()->insert(
+            $connection->insert(
                 $this->resource->getTableName(self::TABLE),
-                ['customer_id' => $customerId, 'provider_code' => $providerCode, 'subject_id' => $subjectId]
+                [
+                    'customer_id' => $customerId,
+                    'provider_code' => $providerCode,
+                    'issuer' => $issuer,
+                    'subject_id' => $subjectId,
+                    'website_id' => (int)$websiteId,
+                ]
             );
         } catch (DuplicateException $e) {
             throw new LocalizedException(__('This sign-in identity is already linked to another account.'), $e);

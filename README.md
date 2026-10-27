@@ -55,7 +55,7 @@ The "Sign in with SSO" button appears on the customer login page and in the Luma
 
 An SSO identity is matched to a customer in this order:
 
-1. **By IdP `sub`** — the subject stored in `dmlab_customer_sso_subject` per provider. Signs in regardless of email verification.
+1. **By IdP identity** — issuer (`iss`) + subject (`sub`) stored in `dmlab_customer_sso_subject` per provider. Signs in regardless of email verification. A link created before issuers were stored is bound to the issuer of its next matching login.
 2. **By email**, governed by `auto_link_policy`:
    - `require_verification` (default) — adopt the existing customer only when the IdP marks the email verified (`email_verified`). Legacy `auto` resolves to this.
    - `disabled` — never link by email.
@@ -63,7 +63,7 @@ An SSO identity is matched to a customer in this order:
    Otherwise the login is refused and the shopper is told to sign in with their password and link from My Account — keep *Keep Password Login* on if existing customers may need this path.
 3. **JIT create** — no match → a new customer is created only when the IdP marks the email verified; an unverified email is refused and nothing is created.
 
-**Explicit linking** — a signed-in customer links or unlinks an identity under **My Account → Single Sign-On** (`customersso/account`). The session already proves ownership, so the verified flag is not checked; the link is bound to the session customer. A customer holds at most one identity per provider, and an identity belongs to one customer.
+**Explicit linking** — a signed-in customer links or unlinks an identity under **My Account → Single Sign-On** (`customersso/account`). The session already proves ownership, so the verified flag is not checked; the link is bound to the session customer. A customer holds at most one identity per provider. An identity belongs to one customer — one per website when customer accounts are shared per website (`customer/account_share/scope`).
 
 ## Group → customer-group mapping
 

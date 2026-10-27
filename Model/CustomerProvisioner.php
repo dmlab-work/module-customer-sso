@@ -21,10 +21,11 @@ use Magento\Store\Model\StoreManagerInterface;
  * needed and keeping the IdP-subject link that makes re-login stable.
  *
  * Resolution order mirrors the suite contract:
- *  1. match by the stored IdP subject (`sub`) — the stable re-login key;
+ *  1. match by the stored IdP identity (issuer + `sub`) — the stable re-login key;
+ *     with per-website accounts only links on the current website count;
  *  2. else match by email and adopt the existing customer, but only when the IdP
  *     verified the email, email linking is enabled, and the account is not bound to
- *     a different subject of the same provider (takeover guard);
+ *     another identity of the same provider (takeover guard);
  *  3. else create a fresh `customer_entity` (JIT) and link it to the subject — only
  *     for an IdP-verified email, so an unverified identity cannot squat an address.
  *
@@ -82,9 +83,10 @@ class CustomerProvisioner
     public function provision(IdentityInterface $identity): CustomerInterface
     {
         $subjectId = $identity->getSubjectId();
+        $issuer = $identity->getIssuer();
         $providerCode = $this->currentProviderCode();
 
-        $linked = $this->findLinkedCustomer($providerCode, $subjectId);
+        $linked = $this->findLinkedCustomer($providerCode, $issuer, $subjectId);
         if ($linked !== null) {
             return $linked;
         }
@@ -93,11 +95,11 @@ class CustomerProvisioner
         if ($email !== null) {
             $existing = $this->findByEmail($email);
             if ($existing !== null) {
-                return $this->adoptByEmail($existing, $identity, $providerCode, $subjectId);
+                return $this->adoptByEmail($existing, $identity, $providerCode);
             }
         }
 
-        return $this->createNew($identity, $email, $providerCode, $subjectId);
+        return $this->createNew($identity, $email, $providerCode);
     }
 
     /**
@@ -106,12 +108,18 @@ class CustomerProvisioner
      * Also returns null when the link is stale (the customer was deleted).
      *
      * @param string $providerCode active SSO provider code
+     * @param string $issuer
      * @param string $subjectId
      * @throws LocalizedException when accounts are per-website and the linked customer belongs to another website
      */
-    private function findLinkedCustomer(string $providerCode, string $subjectId): ?CustomerInterface
+    private function findLinkedCustomer(string $providerCode, string $issuer, string $subjectId): ?CustomerInterface
     {
-        $customerId = $this->subjectLink->findCustomerIdBySubject($providerCode, $subjectId);
+        $customerId = $this->subjectLink->findCustomerIdBySubject(
+            $providerCode,
+            $issuer,
+            $subjectId,
+            $this->shareConfig->isWebsiteScope() ? $this->currentWebsiteId() : null
+        );
         if ($customerId === null) {
             return null;
         }
@@ -122,6 +130,7 @@ class CustomerProvisioner
             return null;
         }
 
+        // Guards a link whose stored website went stale (customer moved to another website).
         if ($this->shareConfig->isWebsiteScope() && (int)$customer->getWebsiteId() !== $this->currentWebsiteId()) {
             throw new LocalizedException(
                 __('This sign-in identity is linked to a customer account on another website.')
@@ -146,28 +155,25 @@ class CustomerProvisioner
     }
 
     /**
-     * Adopt an existing customer matched by email, storing the subject link so future
-     * logins resolve by subject. Refuses when the account already holds a different
-     * subject for the current provider (takeover guard), when the IdP did not verify
-     * the email, or when email linking is disabled. Links under other providers do not
-     * block adoption.
+     * Adopt an existing customer matched by email, storing the identity link so future
+     * logins resolve by it. Refuses when the account already holds an identity for the
+     * current provider (takeover guard — a match on this identity resolved in step 1),
+     * when the IdP did not verify the email, or when email linking is disabled. Links
+     * under other providers do not block adoption.
      *
      * @param CustomerInterface $customer customer matched by email
      * @param IdentityInterface $identity
      * @param string $providerCode active SSO provider code
-     * @param string $subjectId
      * @throws LocalizedException when linking is not permitted
      */
     private function adoptByEmail(
         CustomerInterface $customer,
         IdentityInterface $identity,
-        string $providerCode,
-        string $subjectId
+        string $providerCode
     ): CustomerInterface {
         $customerId = (int)$customer->getId();
 
-        $existingSubject = $this->subjectLink->getSubjectForProvider($customerId, $providerCode);
-        if ($existingSubject !== null && $existingSubject !== $subjectId) {
+        if ($this->subjectLink->getSubjectForProvider($customerId, $providerCode) !== null) {
             throw new LocalizedException(
                 __('A customer account with this email is already linked to a different single sign-on identity.')
             );
@@ -182,7 +188,7 @@ class CustomerProvisioner
             );
         }
 
-        $this->subjectLink->link($customerId, $providerCode, $subjectId);
+        $this->subjectLink->link($customerId, $providerCode, $identity->getIssuer(), $identity->getSubjectId());
 
         return $customer;
     }
@@ -193,14 +199,12 @@ class CustomerProvisioner
      * @param IdentityInterface $identity
      * @param string|null $email already-normalized email, or null
      * @param string $providerCode active SSO provider code
-     * @param string $subjectId
      * @throws LocalizedException when the IdP released no email, or did not verify it
      */
     private function createNew(
         IdentityInterface $identity,
         ?string $email,
-        string $providerCode,
-        string $subjectId
+        string $providerCode
     ): CustomerInterface {
         if ($email === null) {
             throw new LocalizedException(
@@ -228,7 +232,12 @@ class CustomerProvisioner
         $customer->setLastname($lastName);
 
         $saved = $this->customerRepository->save($customer);
-        $this->subjectLink->link((int)$saved->getId(), $providerCode, $subjectId);
+        $this->subjectLink->link(
+            (int)$saved->getId(),
+            $providerCode,
+            $identity->getIssuer(),
+            $identity->getSubjectId()
+        );
 
         return $saved;
     }
