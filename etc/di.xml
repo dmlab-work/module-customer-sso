@@ -13,6 +13,10 @@
             <argument name="presets" xsi:type="array"/>
         </arguments>
     </type>
+    <!-- Refuse native password login (form, ajax, REST and GraphQL tokens) when "Keep Password Login" is off. -->
+    <type name="Magento\Customer\Api\AccountManagementInterface">
+        <plugin name="dmlab_customer_sso_enforce_sso" type="DmLab\CustomerSso\Plugin\Customer\EnforceSso"/>
+    </type>
     <type name="Magento\Config\Model\Config\TypePool">
         <arguments>
             <argument name="sensitive" xsi:type="array">

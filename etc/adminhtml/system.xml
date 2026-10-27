@@ -53,7 +53,7 @@
                        showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Keep Password Login</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment>Keeps the native email/password login form visible alongside the SSO button.</comment>
+                    <comment>Keeps native email/password login available alongside SSO. No: login form, checkout popup and REST/GraphQL customer tokens refuse passwords.</comment>
                     <depends>
                         <field id="enabled">1</field>
                     </depends>

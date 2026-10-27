@@ -42,7 +42,7 @@ General,General
 "Client ID","Client ID"
 "Client Secret","Client Secret"
 "Keep Password Login","Keep Password Login"
-"Keeps the native email/password login form visible alongside the SSO button.","Keeps the native email/password login form visible alongside the SSO button."
+"Keeps native email/password login available alongside SSO. No: login form, checkout popup and REST/GraphQL customer tokens refuse passwords.","Keeps native email/password login available alongside SSO. No: login form, checkout popup and REST/GraphQL customer tokens refuse passwords."
 "Account Linking by Email","Account Linking by Email"
 "When an SSO email matches an existing customer: link it only if
                         the IdP marked the email verified, or never (the customer links from
@@ -54,3 +54,4 @@ General,General
                         Blank lines and <code>#</code> comments are ignored.","One rule per line as <code>idp_group=customer_group_id</code>.
                         Blank lines and <code>#</code> comments are ignored."
 "Single Sign-On","Single Sign-On"
+"Password sign-in is disabled for this store. Please sign in with single sign-on.","Password sign-in is disabled for this store. Please sign in with single sign-on."

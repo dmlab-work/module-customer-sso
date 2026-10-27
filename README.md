@@ -45,11 +45,11 @@ Admin → Stores → Configuration → **DMLab → Customer SSO → General** (c
 | Identity Provider | `active_provider` | Dropdown populated by installed provider plugins. |
 | Client ID | `client_id` | OIDC client id from the IdP. |
 | Client Secret | `client_secret` | Stored encrypted; sensitive, so `app:config:dump` leaves it out — set it per environment. |
-| Keep Password Login | `allow_password_login` | On (default): native email/password form stays visible alongside SSO. Off: form is hidden once SSO is live, making login SSO-only. |
+| Keep Password Login | `allow_password_login` | On (default): native email/password login stays available alongside SSO. Off: once SSO is live, login is SSO-only — the form is hidden and password login is refused server-side (login form, checkout popup, REST and GraphQL customer tokens). |
 | Account Linking by Email | `auto_link_policy` | `require_verification` (default) or `disabled`. See below. |
 | Group to Customer-Group Map | `group_customer_group_map` | IdP group → customer-group rules. See below. |
 
-The "Sign in with SSO" button appears on the customer login page and in the Luma checkout login popups (authentication popup and the checkout authentication step) when the module is enabled and a provider is selected; it uses the active preset's branding. Popup sign-in returns the shopper to checkout. Custom placements can link to `customersso/sso/start?referer=<base64 URL>` to return to that page; a URL off the store's own origin is ignored. Setting *Keep Password Login* to *No* hides the native form once SSO is live. As a break-glass, the form stays visible on an unconfigured or broken install (no active provider), so a mis-set toggle can never lock shoppers out.
+The "Sign in with SSO" button appears on the customer login page and in the Luma checkout login popups (authentication popup and the checkout authentication step) when the module is enabled and a provider is selected; it uses the active preset's branding. Popup sign-in returns the shopper to checkout. Custom placements can link to `customersso/sso/start?referer=<base64 URL>` to return to that page; a URL off the store's own origin is ignored. Setting *Keep Password Login* to *No* hides the native form and refuses password login once SSO is live. As a break-glass, password login stays available on an unconfigured or broken install (no active provider), so a mis-set toggle can never lock shoppers out.
 
 ## Account linking
 

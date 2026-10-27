@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace DmLab\CustomerSso\Test\Unit\Etc;
 
 use DmLab\CustomerSso\Block\Checkout\SsoButtonProcessor;
+use DmLab\CustomerSso\Plugin\Customer\EnforceSso;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -26,6 +27,19 @@ class DiConfigTest extends TestCase
 
         self::assertCount(1, $items);
         self::assertSame('1', trim((string)$items[0]));
+    }
+
+    public function testPasswordLoginEnforcedOnAccountManagementInAllAreas(): void
+    {
+        $xml = simplexml_load_file(dirname(__DIR__, 3) . '/etc/di.xml');
+        self::assertNotFalse($xml);
+
+        $plugins = $xml->xpath(
+            '/config/type[@name="Magento\Customer\Api\AccountManagementInterface"]/plugin'
+        );
+
+        self::assertCount(1, $plugins);
+        self::assertSame(EnforceSso::class, (string)$plugins[0]['type']);
     }
 
     /**

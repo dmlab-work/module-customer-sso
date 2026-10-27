@@ -9,6 +9,7 @@ namespace DmLab\CustomerSso\Test\Unit\Plugin;
 
 use DmLab\CustomerSso\Model\ActiveProviderResolver;
 use DmLab\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\PasswordLoginPolicy;
 use DmLab\CustomerSso\Plugin\HidePasswordLoginForm;
 use DmLab\SsoCore\Api\ProviderPresetInterface;
 use Magento\Customer\Block\Form\Login;
@@ -35,7 +36,7 @@ class HidePasswordLoginFormTest extends TestCase
             $providerActive ? $this->createStub(ProviderPresetInterface::class) : null
         );
 
-        return new HidePasswordLoginForm($config, $resolver);
+        return new HidePasswordLoginForm(new PasswordLoginPolicy($config, $resolver));
     }
 
     public function testHidesFormWhenPasswordLoginDisabledUnderLiveSso(): void

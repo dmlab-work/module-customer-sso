@@ -7,27 +7,21 @@ declare(strict_types=1);
 
 namespace DmLab\CustomerSso\Plugin;
 
-use DmLab\CustomerSso\Model\ActiveProviderResolver;
-use DmLab\CustomerSso\Model\Config;
+use DmLab\CustomerSso\Model\PasswordLoginPolicy;
 use Magento\Customer\Block\Form\Login;
 
 /**
- * Enforce the "Keep Password Login" toggle by hiding the native storefront
- * email/password form when the admin turned it off and SSO is live (enabled with
- * an active provider).
- *
- * Guarding on an active provider keeps the form visible on an unconfigured or
- * broken install, so a mis-set toggle can never lock shoppers out with no way in.
+ * Hide the native storefront email/password form when "Keep Password Login" is off
+ * under live SSO ({@see PasswordLoginPolicy}). The login itself is refused by
+ * {@see \DmLab\CustomerSso\Plugin\Customer\EnforceSso}.
  */
 class HidePasswordLoginForm
 {
     /**
-     * @param Config $config
-     * @param ActiveProviderResolver $activeProviderResolver
+     * @param PasswordLoginPolicy $passwordLoginPolicy
      */
     public function __construct(
-        private readonly Config $config,
-        private readonly ActiveProviderResolver $activeProviderResolver
+        private readonly PasswordLoginPolicy $passwordLoginPolicy
     ) {
     }
 
@@ -39,20 +33,10 @@ class HidePasswordLoginForm
      */
     public function afterToHtml(Login $subject, string $result): string
     {
-        if ($this->isPasswordLoginSuppressed()) {
+        if ($this->passwordLoginPolicy->isPasswordLoginDisabled()) {
             return '';
         }
 
         return $result;
-    }
-
-    /**
-     * Whether SSO is live and the admin turned native password login off.
-     */
-    private function isPasswordLoginSuppressed(): bool
-    {
-        return $this->config->isEnabled()
-            && !$this->config->isPasswordLoginAllowed()
-            && $this->activeProviderResolver->getActive() !== null;
     }
 }
