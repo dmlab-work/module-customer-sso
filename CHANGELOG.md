@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.5
+
+- Supports Magento 2.4.7+ (`magento/framework ^103.0.7`) and PHP 8.2–8.5.
+- Unit tests run on PHPUnit 11.5 and 12.5.
+- CI on PHP 8.2–8.5; CI installs are no longer counted as Packagist downloads.
+- composer.json: keywords, homepage, support links, suggests `dmlab/module-customer-passkey`.
+- README rewritten: screenshot, requirements, Hyvä status.
+
 ## 0.2.4
 
 - Added: **Sign Out of IdP on Logout** (`dmlab_customer_sso/general/idp_logout`, store-scoped, default No). Customer logout of an SSO session redirects to the IdP `end_session_endpoint` with `id_token_hint`, returning to `customer/account/logoutSuccess/`; register that URL per store at the IdP.
