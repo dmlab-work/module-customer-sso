@@ -23,6 +23,7 @@ use DmLab\CustomerSso\Model\Session\PendingEntries;
 use DmLab\CustomerSso\Model\Session\IdpSessionStorage;
 use DmLab\CustomerSso\Model\Session\SsoIntentStorage;
 use DmLab\CustomerSso\Model\SubjectLink;
+use DmLab\CustomerSso\Test\Unit\Helper\PartialMockTrait;
 use DmLab\SsoCore\Api\AuthorizationStateStorageInterface;
 use DmLab\SsoCore\Api\Data\AuthorizationStateInterface;
 use DmLab\SsoCore\Api\ProviderPresetInterface;
@@ -57,7 +58,6 @@ use Magento\Framework\Stdlib\Cookie\CookieMetadataFactory;
 use Magento\Framework\Stdlib\Cookie\PublicCookieMetadata;
 use Magento\Framework\Stdlib\CookieManagerInterface;
 use Magento\Framework\Stdlib\DateTime\DateTime;
-use Magento\Framework\TestFramework\Unit\Helper\MockCreationTrait;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Framework\Url\DecoderInterface;
 use Magento\Framework\Url\HostChecker;
@@ -90,7 +90,7 @@ use Psr\Log\LoggerInterface;
 #[AllowMockObjectsWithoutExpectations]
 class EndToEndTest extends TestCase
 {
-    use MockCreationTrait;
+    use PartialMockTrait;
 
     /** Subject the stub IdP releases; the stable re-login key. */
     private const SUBJECT = 'idp-subject-1';

@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 
 class PackagingTest extends TestCase
 {
-    private const string LICENSE_LINE =
+    private const LICENSE_LINE =
         ' * Licensed under the Open Software License version 3.0 (OSL-3.0). See LICENSE.';
 
     private function root(): string
@@ -90,6 +90,39 @@ class PackagingTest extends TestCase
 
         $xml = simplexml_load_file($this->root() . '/etc/module.xml');
         self::assertSame('0.2.0', (string)$xml->module['setup_version']);
+    }
+
+    public function testComposerSupportsMagento247AndPhp82(): void
+    {
+        $composer = json_decode((string)file_get_contents($this->root() . '/composer.json'), true);
+        self::assertSame('~8.2.0||~8.3.0||~8.4.0||~8.5.0', $composer['require']['php']);
+        $magento = array_filter(
+            $composer['require'],
+            static fn (string $name): bool => str_starts_with($name, 'magento/'),
+            ARRAY_FILTER_USE_KEY
+        );
+        self::assertSame([
+            'magento/framework' => '^103.0.7',
+            'magento/module-backend' => '^102.0.7',
+            'magento/module-checkout' => '^100.4.7',
+            'magento/module-config' => '^101.2.7',
+            'magento/module-customer' => '^103.0.7',
+            'magento/module-store' => '^101.1.7',
+        ], $magento);
+        self::assertSame('^11.5||^12.5', $composer['require-dev']['phpunit/phpunit']);
+        self::assertSame('https://github.com/dmlab-work/module-customer-sso', $composer['homepage']);
+        self::assertSame($composer['homepage'] . '/issues', $composer['support']['issues']);
+        self::assertArrayHasKey('dmlab/module-customer-passkey', $composer['suggest']);
+    }
+
+    public function testEveryReadmeImageExists(): void
+    {
+        preg_match_all('#!\[[^\]]*\]\(([^)\s]+)\)#', (string)file_get_contents($this->root() . '/README.md'), $images);
+        $local = array_filter($images[1], static fn (string $src): bool => !preg_match('#^https?://#', $src));
+        self::assertNotEmpty($local);
+        foreach ($local as $src) {
+            self::assertFileExists($this->root() . '/' . $src);
+        }
     }
 
     public function testGitattributesExportIgnoresDevelopmentFiles(): void

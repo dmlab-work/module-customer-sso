@@ -4,20 +4,14 @@
 
 [![CI](https://github.com/dmlab-work/module-customer-sso/actions/workflows/ci.yml/badge.svg)](https://github.com/dmlab-work/module-customer-sso/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/dmlab-work/module-customer-sso/graph/badge.svg)](https://codecov.io/gh/dmlab-work/module-customer-sso) [![Packagist Version](https://img.shields.io/packagist/v/dmlab/module-customer-sso)](https://packagist.org/packages/dmlab/module-customer-sso) [![Downloads](https://img.shields.io/packagist/dt/dmlab/module-customer-sso)](https://packagist.org/packages/dmlab/module-customer-sso) [![PHP](https://img.shields.io/packagist/dependency-v/dmlab/module-customer-sso/php)](https://packagist.org/packages/dmlab/module-customer-sso) [![License](https://img.shields.io/packagist/l/dmlab/module-customer-sso)](LICENSE) ![Magento](https://img.shields.io/badge/Magento-2.4-orange)
 
-This is the storefront-login capability **core**: it logs shoppers in over OIDC but never references a concrete IdP. Install a provider plugin (e.g. `customer-sso-okta`) to bind it to an identity provider.
+Shoppers sign in with the account they already have at your identity provider (Okta via [customer-sso-okta](https://github.com/dmlab-work/module-customer-sso-okta)) instead of creating another password.
+The first sign-in creates the customer, existing customers are linked by verified email, and IdP groups can set the customer group (e.g. wholesale).
 
-## Features
+![Customer SSO settings in Magento: enable, identity provider, client ID, password login and account linking](.github/images/config.png)
 
-- **JIT customer creation** — an unknown identity with an IdP-verified email provisions a new `customer_entity` on first sign-in.
-- **Account linking** by IdP `sub` first, then by verified email under policy, or explicitly from My Account → Single Sign-On.
-- **Checkout sign-in** — the SSO button also appears in the Luma checkout and minicart login popups and returns the shopper to checkout.
-- **Hyvä template** for the login-page button.
-- **Group mapping** — an IdP claim maps to a Magento customer group.
-- **Coexists with password login** — the native email/password form stays available (configurable).
+## Install
 
-## Installation
-
-Usually installed via a provider plugin, which pulls this core (which pulls `sso-core`):
+Usually installed via a provider plugin, which pulls this module and `sso-core`:
 
 ```bash
 composer require dmlab/module-customer-sso-okta
@@ -35,6 +29,25 @@ bin/magento setup:upgrade
 
 Register the module callback URL in your IdP: `https://<store-host>/customersso/sso/callback`. It must exactly match the storefront URL used at runtime.
 
+## Requirements
+
+- Magento 2.4.7+ · PHP 8.2–8.5
+- A provider plugin, e.g. `dmlab/module-customer-sso-okta`
+- `dmlab/module-sso-core` **^0.2.3** (installed automatically)
+- The store's callback URL registered at the IdP
+
+## Hyvä
+
+A Hyvä (Tailwind) template for the login-page button ships with the module, but the theme layout must be edited by hand. In the Hyvä theme's `Magento_Customer/layout/customer_account_login.xml`:
+
+```xml
+<referenceBlock name="dmlab.customer.sso.button" template="DmLab_CustomerSso::login/sso-button-hyva.phtml"/>
+```
+
+The checkout and minicart popup buttons are Luma only.
+
+Pairs with [customer-sso-okta](https://github.com/dmlab-work/module-customer-sso-okta) (Okta sign-in) and [customer-passkey](https://github.com/dmlab-work/module-customer-passkey) (passkey sign-in).
+
 ## Configuration
 
 Admin → Stores → Configuration → **DMLab → Customer SSO → General** (config path `dmlab_customer_sso/general/*`). Settings are store-scoped, so SSO can be enabled and tuned per store view.
@@ -50,7 +63,7 @@ Admin → Stores → Configuration → **DMLab → Customer SSO → General** (c
 | Group to Customer-Group Map | `group_customer_group_map` | IdP group → customer-group rules. See below. |
 | Sign Out of IdP on Logout | `idp_logout` | Off by default. See below. |
 
-The "Sign in with SSO" button appears on the customer login page and in the Luma checkout login popups (authentication popup and the checkout authentication step) when the module is enabled and a provider is selected; it uses the active preset's branding. Popup sign-in returns the shopper to checkout. Custom placements can link to `customersso/sso/start?referer=<base64 URL>` to return to that page; a URL off the store's own origin is ignored. Setting *Keep Password Login* to *No* hides the native form and refuses password login once SSO is live. As a break-glass, password login stays available on an unconfigured or broken install (no active provider), so a mis-set toggle can never lock shoppers out.
+The "Sign in with SSO" button appears on the customer login page and in the Luma checkout login popups (authentication popup and the checkout authentication step) when the module is enabled and a provider is selected; it uses the identity provider's branding. Popup sign-in returns the shopper to checkout. Custom placements can link to `customersso/sso/start?referer=<base64 URL>` to return to that page; a URL off the store's own origin is ignored. Setting *Keep Password Login* to *No* hides the native form and refuses password login once SSO is live. As a break-glass, password login stays available on an unconfigured or broken install (no active provider), so a mis-set toggle can never lock shoppers out.
 
 ## Account linking
 
@@ -84,35 +97,14 @@ With **Sign Out of IdP on Logout** on, a shopper who signed in with SSO is also 
 
 Register `https://<store-host>/customer/account/logoutSuccess/` (each store base URL) as a post-logout redirect URI at the IdP. If the IdP advertises no `end_session_endpoint`, discovery fails, the store's active provider changed since login, or the shopper signed in with a password, logout stays local.
 
-## Hyvä
+## Architecture
 
-The default button template uses Luma markup. In a Hyvä theme, point the block at the bundled Tailwind template in the theme's `Magento_Customer/layout/customer_account_login.xml`:
-
-```xml
-<referenceBlock name="dmlab.customer.sso.button" template="DmLab_CustomerSso::login/sso-button-hyva.phtml"/>
-```
-
-## How it works
+This module is the storefront-login capability core: it signs shoppers in over OIDC via `sso-core` but never references a concrete IdP. A provider plugin (e.g. `customer-sso-okta`) registers a preset that binds it to an identity provider.
 
 1. Shopper clicks "Sign in with SSO" → `customersso/sso/start` builds the OIDC auth URL (state + nonce + PKCE) via sso-core and the active preset, persists the state and a `login` intent (optional own-origin return URL) in the customer session (valid 10 minutes, at most 10 pending per session), then redirects to the IdP. Linking starts the same way from `customersso/account/link` (POST, signed-in only) with a `link` intent.
 2. IdP redirects back to `customersso/sso/callback`, which validates `state` and the RFC 9207 `iss` response parameter, exchanges the code, and normalizes claims into an `Identity` via sso-core. Failures return with a message to the login page, or to My Account → Single Sign-On for a `link` intent.
 3. `login` (refused when a customer is already signed in): the customer is matched (issuer + `sub` → verified email under policy → verified JIT create), the group is resolved, the session is established and `mage-cache-sessid` is reset so private content reloads; redirect to the return URL or My Account.
 4. `link`: the identity is linked to the session customer; redirect to My Account → Single Sign-On.
-
-## Requirements
-
-- Magento **2.4.x** (tested on 2.4.9)
-- `dmlab/module-sso-core` **^0.2.3** (installed automatically)
-- PHP **8.3 – 8.5**
-
-## Part of the DMLab identity suite
-
-| Repo | Role |
-|------|------|
-| `sso-core` | Shared OIDC engine (installed automatically) |
-| `admin-sso` · `admin-sso-<idp>` | Admin-panel SSO login |
-| `customer-sso` · `customer-sso-<idp>` | Storefront SSO login |
-| `admin-scim` · `admin-scim-<idp>` | Admin-user provisioning (SCIM 2.0) |
 
 ## License
 

@@ -10,9 +10,9 @@ namespace DmLab\CustomerSso\Test\Unit\Model\Session;
 use DmLab\CustomerSso\Model\Session\SsoIntentStorage;
 use DmLab\CustomerSso\Model\SsoIntent;
 use DmLab\CustomerSso\Model\Session\PendingEntries;
+use DmLab\CustomerSso\Test\Unit\Helper\PartialMockTrait;
 use Magento\Customer\Model\Session;
 use Magento\Framework\Stdlib\DateTime\DateTime;
-use Magento\Framework\TestFramework\Unit\Helper\MockCreationTrait;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 #[AllowMockObjectsWithoutExpectations]
 class SsoIntentStorageTest extends TestCase
 {
-    use MockCreationTrait;
+    use PartialMockTrait;
 
     private const SESSION_KEY = 'dmlab_customer_sso_intents';
 

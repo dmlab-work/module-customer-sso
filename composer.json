@@ -4,18 +4,40 @@
     "type": "magento2-module",
     "license": "OSL-3.0",
     "version": "0.2.4",
+    "keywords": [
+        "magento2",
+        "magento2-module",
+        "magento 2",
+        "sso",
+        "single sign-on",
+        "oidc",
+        "openid connect",
+        "customer login",
+        "storefront login",
+        "okta",
+        "identity provider",
+        "account linking"
+    ],
+    "homepage": "https://github.com/dmlab-work/module-customer-sso",
+    "support": {
+        "issues": "https://github.com/dmlab-work/module-customer-sso/issues",
+        "source": "https://github.com/dmlab-work/module-customer-sso"
+    },
     "require": {
-        "php": "~8.3.0||~8.4.0||~8.5.0",
-        "magento/framework": ">=103.0",
-        "magento/module-backend": ">=102.0",
-        "magento/module-checkout": ">=100.4",
-        "magento/module-config": ">=101.2",
-        "magento/module-customer": ">=103.0",
-        "magento/module-store": ">=101.1",
+        "php": "~8.2.0||~8.3.0||~8.4.0||~8.5.0",
+        "magento/framework": "^103.0.7",
+        "magento/module-backend": "^102.0.7",
+        "magento/module-checkout": "^100.4.7",
+        "magento/module-config": "^101.2.7",
+        "magento/module-customer": "^103.0.7",
+        "magento/module-store": "^101.1.7",
         "dmlab/module-sso-core": "^0.2.3"
     },
     "require-dev": {
-        "phpunit/phpunit": "^12.0"
+        "phpunit/phpunit": "^11.5||^12.5"
+    },
+    "suggest": {
+        "dmlab/module-customer-passkey": "Passwordless passkey (WebAuthn) sign-in for customers, alongside SSO"
     },
     "autoload": {
         "files": [

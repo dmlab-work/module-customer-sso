@@ -8,8 +8,8 @@ declare(strict_types=1);
 namespace DmLab\CustomerSso\Test\Unit\Model\Session;
 
 use DmLab\CustomerSso\Model\Session\IdpSessionStorage;
+use DmLab\CustomerSso\Test\Unit\Helper\PartialMockTrait;
 use Magento\Customer\Model\Session;
-use Magento\Framework\TestFramework\Unit\Helper\MockCreationTrait;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
 #[AllowMockObjectsWithoutExpectations]
 class IdpSessionStorageTest extends TestCase
 {
-    use MockCreationTrait;
+    use PartialMockTrait;
 
     /** @var array<string,mixed> */
     private array $store = [];
